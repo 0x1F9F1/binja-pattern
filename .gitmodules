@@ -1,0 +1,9 @@
+[submodule "vendor/binaryninja-api"]
+	path = vendor/binaryninja-api
+	url = git@github.com:Vector35/binaryninja-api.git
+[submodule "vendor/fmt"]
+	path = vendor/fmt
+	url = git@github.com:fmtlib/fmt.git
+[submodule "vendor/mem"]
+	path = vendor/mem
+	url = git@github.com:DatBrick/mem.git
