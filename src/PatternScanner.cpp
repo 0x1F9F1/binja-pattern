@@ -85,20 +85,45 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 {
     const mem::pattern pattern(pattern_string.c_str());
 
-    std::vector<Ref<Segment>> segments = view->GetSegments();
     std::vector<uint64_t> results;
-    std::mutex mutex;
 
     const auto start_time = stopwatch::now();
 
-    parallel_for_each(segments.begin(), segments.end(), [&] (const Ref<Segment>& segment)
-    {
-        if (task->IsCancelled())
-        {
-            return;
-        }
+    std::vector<Ref<Segment>> segments = view->GetSegments();
 
-        DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
+    if (!segments.empty())
+    {
+        std::mutex mutex;
+
+        parallel_for_each(segments.begin(), segments.end(), [&] (const Ref<Segment>& segment)
+        {
+            if (task->IsCancelled())
+            {
+                return;
+            }
+
+            DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
+
+            std::vector<mem::pointer> scan_results = pattern.scan_all({ data.GetData(), data.GetLength() });
+
+            if (task->IsCancelled())
+            {
+                return;
+            }
+
+            std::unique_lock<std::mutex> lock(mutex);
+
+            for (mem::pointer result : scan_results)
+            {
+                results.push_back(result.shift(data.GetData(), segment->GetStart()).as<uint64_t>());
+            }
+
+            task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
+        });
+    }
+    else
+    {
+        DataBuffer data = view->ReadBuffer(view->GetStart(), view->GetLength());
 
         std::vector<mem::pointer> scan_results = pattern.scan_all({ data.GetData(), data.GetLength() });
 
@@ -107,15 +132,11 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
             return;
         }
 
-        std::unique_lock<std::mutex> lock(mutex);
-
         for (mem::pointer result : scan_results)
         {
-            results.push_back(result.shift(data.GetData(), segment->GetStart()).as<uint64_t>());
+            results.push_back(result.shift(data.GetData(), view->GetStart()).as<uint64_t>());
         }
-
-        task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
-    });
+    }
 
     const auto end_time = stopwatch::now();
 
