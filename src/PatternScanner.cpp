@@ -19,7 +19,9 @@
 
 #include "PatternScanner.h"
 
-#include "../vendor/mem/mem_pattern.h"
+#include <mem/pattern.h>
+#include <mem/utils.h>
+
 #include "BackgroundTaskThread.h"
 
 #include <thread>
@@ -83,11 +85,11 @@ using stopwatch = std::chrono::steady_clock;
 
 void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string)
 {
-    const mem::pattern pattern(pattern_string.c_str());
+    const auto start_time = stopwatch::now();
+
+    mem::pattern pattern(pattern_string.c_str());
 
     std::vector<uint64_t> results;
-
-    const auto start_time = stopwatch::now();
 
     std::vector<Ref<Segment>> segments = view->GetSegments();
 
@@ -149,17 +151,18 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
         
     report += fmt::format("Found {} results for \"{}\" in {} ms:\n", results.size(), pattern_string, std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 
-    const auto plength = pattern.size();
+    const size_t plength = pattern.size();
 
     if (plength > 0)
     {
-        const auto& pbytes = pattern.bytes();
-        const auto& pmasks = pattern.masks();
+        const mem::byte* pbytes = pattern.bytes();
+        const mem::byte* pmasks = pattern.masks();
 
         report += fmt::format("Pattern: Length {}, \"{}\", \"{}\"\n",
             plength,
-            mem::region(pbytes.data(), pbytes.size()).hex(true, true),
-            mem::region(pmasks.data(), pmasks.size()).hex(true, true)
+
+            mem::as_hex({ pbytes, plength }, true, true),
+            mem::as_hex({ pmasks, plength }, true, true)
         );
     }
 

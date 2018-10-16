@@ -26,26 +26,24 @@ endif()
 
 message("Binary Ninja Core at " ${BINJA_CORE_LIBRARY})
 
-add_subdirectory(vendor)
-
-file(GLOB ${PROJECT_NAME}_SRCS
-    src/*.cpp
-    include/*.h)
+add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
 add_library(${PROJECT_NAME} SHARED
-    ${${PROJECT_NAME}_SRCS})
+    src/main.cpp
+    src/PatternScanner.cpp
+    include/PatternScanner.h
+    include/BackgroundTaskThread.h
+    include/BinaryNinja.h)
 
 find_library(BINJA_CORE_LIBRARY binaryninjacore
     HINTS ${BINJA_BIN_DIR})
 
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
-    include
-    vendor/binaryninja-api
-    vendor/fmt/include
-    vendor/bitsery/include)
+target_include_directories(${PROJECT_NAME}
+    PRIVATE include
+    PRIVATE vendor/binaryninja-api)
 
 target_link_libraries(${PROJECT_NAME}
-    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt)
+    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11
