@@ -19,7 +19,7 @@
 
 #include "PatternScanner.h"
 
-#include <mem/pattern.h>
+#include <mem/jit_pattern.h>
 #include <mem/utils.h>
 
 #include "BackgroundTaskThread.h"
@@ -28,6 +28,8 @@
 #include <mutex>
 
 #include <chrono>
+
+#define JIT_COMPILE_PATTERNS
 
 const size_t MAX_SCAN_RESULTS = 1000;
 
@@ -89,6 +91,11 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
     mem::pattern pattern(pattern_string.c_str());
 
+#if defined(JIT_COMPILE_PATTERNS)
+    mem::jit_runtime runtime;
+    mem::jit_pattern jit_pattern(&runtime, pattern);
+#endif
+
     std::vector<uint64_t> results;
 
     std::vector<Ref<Segment>> segments = view->GetSegments();
@@ -106,7 +113,13 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
             DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
 
-            std::vector<mem::pointer> scan_results = pattern.scan_all({ data.GetData(), data.GetLength() });
+            std::vector<mem::pointer> scan_results = 
+#if defined(JIT_COMPILE_PATTERNS)
+                jit_pattern
+#else
+                pattern
+#endif
+                .scan_all({ data.GetData(), data.GetLength() });
 
             if (task->IsCancelled())
             {
@@ -127,7 +140,13 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     {
         DataBuffer data = view->ReadBuffer(view->GetStart(), view->GetLength());
 
-        std::vector<mem::pointer> scan_results = pattern.scan_all({ data.GetData(), data.GetLength() });
+        std::vector<mem::pointer> scan_results =
+#if defined(JIT_COMPILE_PATTERNS)
+                jit_pattern
+#else
+                pattern
+#endif
+                .scan_all({ data.GetData(), data.GetLength() });
 
         if (task->IsCancelled())
         {

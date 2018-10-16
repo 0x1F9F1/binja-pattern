@@ -43,7 +43,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE vendor/binaryninja-api)
 
 target_link_libraries(${PROJECT_NAME}
-    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem)
+    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem_jit)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11
