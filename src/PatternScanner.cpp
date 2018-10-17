@@ -29,25 +29,38 @@
         Wildcards: 3
         Longest Run: 11
 
-        +-------------------+-------+-------------+-------------+
-        |       Mode        | GB/s  |   Cycles    | Cycles/Byte |
-        +-------------------+-------+-------------+-------------+
-        | -MT, -JIT, -Skips | 0.573 | 29056477391 |     6.51460 |
-        | -MT, +JIT, -Skips | 0.653 | 25490299715 |     5.71504 |
-        | -MT, -JIT, +Skips | 0.924 | 18012534184 |     4.03849 |
-        | -MT, +JIT, +Skips | 0.928 | 17933345629 |     4.02074 |
-        | +MT, +JIT, -Skips | 1.155 | 14414069353 |     3.23170 |
-        | +MT, -JIT, -Skips | 1.260 | 13219412111 |     2.96385 |
-        | +MT, -JIT, +Skips | 1.579 | 10541668052 |     2.36349 |
-        | +MT, +JIT, +Skips | 1.584 | 10513712196 |     2.35722 |
-        +-------------------+-------+-------------+-------------+
+    +--------------+-------+------------+-------------+
+    |     Mode     | GB/s  |   Cycles   | Cycles/Byte |
+    +--------------+-------+------------+-------------+
+    | -JIT, -Skips | 1.716 | 9763289586 |    2.189550 |
+    | +JIT, -Skips | 3.270 | 5224431075 |    1.171650 |
+    | -JIT, +Skips | 4.362 | 3931594926 |    0.881715 |
+    | +JIT, +Skips | 4.367 | 3934530674 |    0.882373 |
+    +--------------+-------+------------+-------------+
+
+    Pattern:
+        Length: 11
+        Wildcards: 5
+        Longest Run: 4
+
+    +--------------+-------+-------------+-------------+
+    |     Mode     | GB/s  |   Cycles    | Cycles/Byte |
+    +--------------+-------+-------------+-------------+
+    | -JIT, -Skips | 1.109 | 15104988203 |     3.38750 |
+    | -JIT, +Skips | 1.685 |  9956543280 |     2.23289 |
+    | +JIT, -Skips | 3.296 |  5173242826 |     1.16017 |
+    | +JIT, +Skips | 3.249 |  5244201802 |     1.17608 |
+    +--------------+-------+-------------+-------------+
+
+    42% faster parallel_for_each
+    15% faster parallel_partition
 */
 
 #define ENABLE_JIT_COMPILATION
 #define ENABLE_PATTERN_SKIPS
 // #define DISABLE_MULTI_THREADING
 
-constexpr const size_t SCAN_RUNS = 1;
+constexpr const size_t SCAN_RUNS = 50;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
 constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 4;
 
@@ -81,52 +94,6 @@ uint64_t rdtsc()
     return (static_cast<uint64_t>(hi) << 32) | lo;
 }
 #endif
-
-template <typename Pattern>
-bool ScanRegion(
-    Ref<BackgroundTask> task,
-    std::vector<uint64_t>& results,
-    std::mutex& mutex,
-    const Pattern& pattern,
-    mem::region range,
-    uint64_t start,
-    std::atomic_size_t& total_size)
-{
-    if (task->IsCancelled())
-    {
-        return false;
-    }
-
-    std::vector<mem::pointer> sub_results = pattern.scan_all(range);
-
-    total_size += range.size;
-
-    if (task->IsCancelled())
-    {
-        return false;
-    }
-
-    if (!sub_results.empty())
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-
-        if (results.size() <= MAX_SCAN_RESULTS)
-        {
-            results.reserve(results.size() + sub_results.size());
-
-            for (mem::pointer result : sub_results)
-            {
-                results.push_back(result.shift(range.start, start).as<uint64_t>());
-            }
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
 
 std::string GetInstructionContaningAddress(Ref<BasicBlock> block, uint64_t address)
 {
@@ -180,9 +147,6 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 {
     using stopwatch = std::chrono::steady_clock;
 
-    const auto start_time = stopwatch::now();
-    const auto start_clocks = rdtsc();
-
     mem::pattern pattern(pattern_string.c_str()
 #if !defined(ENABLE_PATTERN_SKIPS)
         , mem::pattern_settings {0,0}
@@ -197,8 +161,65 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     std::vector<uint64_t> results;
     std::mutex mutex;
     std::atomic_size_t total_size = 0;
+    std::atomic_int64_t elapsed_ms = 0;
+    std::atomic_uint64_t elapsed_cycles = 0;
+
+    const auto total_start_time = stopwatch::now();
 
     std::vector<Ref<Segment>> segments = view->GetSegments();
+
+    const auto scan_region = [&] (mem::region range, uint64_t start)
+    {
+        if (task->IsCancelled())
+        {
+            return false;
+        }
+
+        const auto start_time = stopwatch::now();
+        const auto start_clocks = rdtsc();
+
+        std::vector<mem::pointer> sub_results =
+#if defined(ENABLE_JIT_COMPILATION)
+            jit_pattern
+#else
+            pattern
+#endif
+            .scan_all(range);
+
+        
+        const auto end_clocks = rdtsc();
+        const auto end_time = stopwatch::now();
+
+        total_size += range.size;
+        elapsed_ms += std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        elapsed_cycles += end_clocks - start_clocks;
+
+        if (task->IsCancelled())
+        {
+            return false;
+        }
+
+        if (!sub_results.empty())
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+
+            if (results.size() <= MAX_SCAN_RESULTS)
+            {
+                results.reserve(results.size() + sub_results.size());
+
+                for (mem::pointer result : sub_results)
+                {
+                    results.push_back(result.shift(range.start, start).as<uint64_t>());
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        return true;
+    };
 
     for (size_t i = 0; i < SCAN_RUNS; ++i)
     {
@@ -215,17 +236,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
                 DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
 
-                bool result = ScanRegion(
-                    task, results, mutex,
-#if defined(ENABLE_JIT_COMPILATION)
-                    jit_pattern,
-#else
-                    pattern,
-#endif
-                    { data.GetData(), data.GetLength() },
-                    segment->GetStart(),
-                    total_size
-                );
+                bool result = scan_region({ data.GetData(), data.GetLength() }, segment->GetStart());
 
                 task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
 
@@ -238,22 +249,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
             parallel_partition(data.GetLength(), PARTITION_SIZE, pattern.size(), [&] (size_t offset, size_t length)
             {
-                if (task->IsCancelled())
-                {
-                    return false;
-                }
-
-                bool result = ScanRegion(
-                    task, results, mutex,
-#if defined(ENABLE_JIT_COMPILATION)
-                    jit_pattern,
-#else
-                    pattern,
-#endif
-                    { data.GetDataAt(offset), length },
-                    view->GetStart(),
-                    total_size
-                );
+                bool result = scan_region({ data.GetDataAt(offset), length }, view->GetStart());
 
                 task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
 
@@ -262,8 +258,10 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
         }
     }
 
-    const auto end_clocks = rdtsc();
-    const auto end_time = stopwatch::now();
+            
+    const auto total_end_time = stopwatch::now();
+
+    int64_t total_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
 
     if (task->IsCancelled())
     {
@@ -271,9 +269,6 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     }
 
     std::string report;
-
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    const auto elapsed_clocks = end_clocks - start_clocks;
 
     if (results.size() >= MAX_SCAN_RESULTS)
     {
@@ -284,9 +279,8 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
     std::sort(results.begin(), results.end());
 
-    report += fmt::format("Found {} results for \"{}\" in {} ms:\n", results.size(), pattern_string, elapsed_ms);
-    report += fmt::format("Scanned 0x{:X} bytes = {:.3f} GB/s\n", total_size, (total_size / 1'073'741'824.0) / (elapsed_ms / 1000.0));
-    report += fmt::format("Cycles: {} = {} cycles per byte\n", elapsed_clocks, double(elapsed_clocks) / double(total_size));
+    report += fmt::format("Found {} results for \"{}\" in {} ms (actual {} ms):\n", results.size(), pattern_string, elapsed_ms, total_elapsed_ms);
+    report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n", total_size, (total_size / 1'073'741'824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
 
     const size_t plength = pattern.size();
 

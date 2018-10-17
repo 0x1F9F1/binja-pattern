@@ -48,16 +48,23 @@ inline void parallel_invoke_n(size_t thread_count, const UnaryFunction& func, co
 }
 #endif
 
+inline size_t parallel_get_thread_count()
+{
+    size_t result = std::thread::hardware_concurrency();
+
+    if (!result)
+    {
+        result = 2;
+    }
+
+    return 4;
+}
+
 template <typename ForwardIt, typename UnaryPredicate>
 inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredicate& func)
 {
 #if !defined(DISABLE_MULTI_THREADING)
-    size_t  thread_count = std::thread::hardware_concurrency();
-
-    if (thread_count == 0)
-    {
-        thread_count = 4;
-    }
+    size_t thread_count = parallel_get_thread_count();
 
     std::mutex mutex;
 
@@ -105,12 +112,7 @@ inline void parallel_partition(const size_t total, const size_t partition, const
         return;
     }
 
-    size_t thread_count = std::thread::hardware_concurrency();
-
-    if (thread_count == 0)
-    {
-        thread_count = 4;
-    }
+    size_t thread_count = parallel_get_thread_count();
 
     thread_count = std::min<size_t>(thread_count, (total + partition - 1) / partition);
 
