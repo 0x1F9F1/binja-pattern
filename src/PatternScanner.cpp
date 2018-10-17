@@ -160,9 +160,9 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
     std::vector<uint64_t> results;
     std::mutex mutex;
-    std::atomic_size_t total_size = 0;
-    std::atomic_int64_t elapsed_ms = 0;
-    std::atomic_uint64_t elapsed_cycles = 0;
+    std::atomic_size_t total_size {0};
+    std::atomic_int64_t elapsed_ms {0};
+    std::atomic_uint64_t elapsed_cycles {0};
 
     const auto total_start_time = stopwatch::now();
 
@@ -186,7 +186,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 #endif
             .scan_all(range);
 
-        
+
         const auto end_clocks = rdtsc();
         const auto end_time = stopwatch::now();
 
@@ -258,7 +258,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
         }
     }
 
-            
+
     const auto total_end_time = stopwatch::now();
 
     int64_t total_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
@@ -280,7 +280,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     std::sort(results.begin(), results.end());
 
     report += fmt::format("Found {} results for \"{}\" in {} ms (actual {} ms):\n", results.size(), pattern_string, elapsed_ms, total_elapsed_ms);
-    report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n", total_size, (total_size / 1'073'741'824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
+    report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n", total_size, (total_size / 1073741824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
 
     const size_t plength = pattern.size();
 

@@ -22,6 +22,7 @@
 #include "BinaryNinja.h"
 
 #include <thread>
+#include <type_traits>
 
 class BackgroundTaskThread
     : public BackgroundTask
@@ -37,9 +38,9 @@ public:
     template <typename Func, typename... Args>
     void Run(Func&& func, Args&&... args)
     {
-        thread_ = std::thread([ ] (Ref<BackgroundTaskThread> task, auto func, auto... args) -> void
+        thread_ = std::thread([ ] (Ref<BackgroundTaskThread> task, typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
         {
-            std::invoke(std::move(func), task.GetPtr(), std::move(args)...);
+            func(task.GetPtr(), std::move(args)...);
 
             task->Finish();
             task->thread_.detach();

@@ -116,7 +116,7 @@ inline void parallel_partition(const size_t total, const size_t partition, const
 
     thread_count = std::min<size_t>(thread_count, (total + partition - 1) / partition);
 
-    std::atomic_size_t current = 0;
+    std::atomic_size_t current {0};
 
     const auto thread_loop = [&, total, partition, overlap] (size_t /*thread_index*/)
     {

@@ -24,7 +24,15 @@ else()
         CACHE PATH "Binary Ninja user plugins directory")
 endif()
 
+find_library(BINJA_CORE_LIBRARY
+    NAMES binaryninjacore libbinaryninjacore.so.1
+    PATHS ${BINJA_BIN_DIR})
+
 message("Binary Ninja Core at " ${BINJA_CORE_LIBRARY})
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    list(APPEND CMAKE_CXX_FLAGS "-fPIC")
+endif()
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
@@ -35,9 +43,6 @@ add_library(${PROJECT_NAME} SHARED
     include/BackgroundTaskThread.h
     include/BinaryNinja.h
     include/ParallelFunctions.h)
-
-find_library(BINJA_CORE_LIBRARY binaryninjacore
-    HINTS ${BINJA_BIN_DIR})
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE include
@@ -54,8 +59,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin
 )
 
-install(TARGETS ${PROJECT_NAME} RUNTIME
-    DESTINATION ${BINJA_PLUGINS_DIR})
+if (WIN32)
+    install(TARGETS ${PROJECT_NAME} RUNTIME
+        DESTINATION ${BINJA_PLUGINS_DIR})
 
-install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}>
-    DESTINATION ${BINJA_PLUGINS_DIR} OPTIONAL)
+    install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}>
+        DESTINATION ${BINJA_PLUGINS_DIR} OPTIONAL)
+else()
+    install(TARGETS ${PROJECT_NAME} LIBRARY
+        DESTINATION ${BINJA_PLUGINS_DIR})
+endif()
