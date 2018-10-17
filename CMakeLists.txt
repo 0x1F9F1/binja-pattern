@@ -33,7 +33,8 @@ add_library(${PROJECT_NAME} SHARED
     src/PatternScanner.cpp
     include/PatternScanner.h
     include/BackgroundTaskThread.h
-    include/BinaryNinja.h)
+    include/BinaryNinja.h
+    include/ParallelFunctions.h)
 
 find_library(BINJA_CORE_LIBRARY binaryninjacore
     HINTS ${BINJA_BIN_DIR})

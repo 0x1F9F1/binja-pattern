@@ -44,10 +44,10 @@
 */
 
 #define ENABLE_JIT_COMPILATION
-#define ENABLE_MULTI_THREADING
 #define ENABLE_PATTERN_SKIPS
+// #define DISABLE_MULTI_THREADING
 
-constexpr const size_t SCAN_RUNS = 50;
+constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
 
 #include <mem/pattern.h>
@@ -58,8 +58,8 @@ constexpr const size_t MAX_SCAN_RESULTS = 1000;
 #endif
 
 #include "BackgroundTaskThread.h"
+#include "ParallelFunctions.h"
 
-#include <thread>
 #include <mutex>
 #include <atomic>
 
@@ -81,122 +81,53 @@ uint64_t rdtsc()
 }
 #endif
 
-template <typename ForwardIt, typename UnaryFunction>
-void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryFunction& func)
-{
-#if defined(ENABLE_MULTI_THREADING)
-    uint32_t thread_count = std::thread::hardware_concurrency();
-
-    if (thread_count == 0)
-    {
-        thread_count = 4;
-    }
-
-    std::mutex mutex;
-
-    const auto thread_loop = [&]
-    {
-        while (true)
-        {
-            std::unique_lock<std::mutex> guard(mutex);
-
-            if (first != last)
-            {
-                auto value = *first++;
-
-                guard.unlock();
-
-                func(std::move(value));
-            }
-            else
-            {
-                break;
-            }
-        }
-    };
-
-    std::vector<std::thread> threads;
-
-    for (uint32_t i = 0; i < thread_count; ++i)
-    {
-        threads.emplace_back(thread_loop);
-    }
-
-    for (auto& thread : threads)
-    {
-        thread.join();
-    }
-#else
-    std::for_each(first, last, func);
-#endif
-}
+using stopwatch = std::chrono::steady_clock;
 
 template <typename Pattern>
-std::vector<mem::pointer> parallel_scan_all(mem::region range, const Pattern& pattern, size_t partition_size, size_t overlap_size)
+bool ScanRegion(
+    Ref<BackgroundTask> task,
+    std::vector<uint64_t>& results,
+    std::mutex& mutex,
+    const Pattern& pattern,
+    mem::region range,
+    uint64_t start,
+    std::atomic_size_t& total_size)
 {
-#if defined(ENABLE_MULTI_THREADING)
-    if (partition_size >= range.size)
+    if (task->IsCancelled())
     {
-        return pattern.scan_all(range);
+        return false;
     }
 
-    uint32_t thread_count = std::thread::hardware_concurrency();
+    std::vector<mem::pointer> sub_results = pattern.scan_all(range);
 
-    if (thread_count == 0)
+    total_size += range.size;
+
+    if (task->IsCancelled())
     {
-        thread_count = 4;
+        return false;
     }
 
-    std::mutex mutex;
-    std::atomic_size_t current = 0;
-    std::vector<mem::pointer> results;
-
-    const auto thread_loop = [&, range, partition_size, overlap_size]
+    if (!sub_results.empty())
     {
-        while (true)
+        std::lock_guard<std::mutex> lock(mutex);
+
+        if (results.size() <= MAX_SCAN_RESULTS)
         {
-            const size_t sub_current = current.fetch_add(partition_size);
+            results.reserve(results.size() + sub_results.size());
 
-            if (sub_current < range.size)
+            for (mem::pointer result : sub_results)
             {
-                std::vector<mem::pointer> sub_results = pattern.scan_all({
-                    range.start + sub_current, std::min<size_t>(partition_size + overlap_size, range.size - sub_current)
-                });
-
-                if (!sub_results.empty())
-                {
-                    std::lock_guard<std::mutex> guard(mutex);
-
-                    results.reserve(results.size() + sub_results.size());
-                    results.insert(results.end(), sub_results.begin(), sub_results.end());
-                }
-            }
-            else
-            {
-                break;
+                results.push_back(result.shift(range.start, start).as<uint64_t>());
             }
         }
-    };
-
-    std::vector<std::thread> threads;
-
-    for (uint32_t i = 0; i < std::min<size_t>(thread_count, (range.size + partition_size - 1) / partition_size); ++i)
-    {
-        threads.emplace_back(thread_loop);
+        else
+        {
+            return false;
+        }
     }
 
-    for (auto& thread : threads)
-    {
-        thread.join();
-    }
-
-    return results;
-#else
-    return pattern.scan_all(range);
-#endif
+    return true;
 }
-
-using stopwatch = std::chrono::steady_clock;
 
 void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string)
 {
@@ -214,88 +145,71 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     mem::jit_pattern jit_pattern(&runtime, pattern);
 #endif
 
-    std::atomic_size_t total_size = 0;
-
     std::vector<uint64_t> results;
+    std::mutex mutex;
+    std::atomic_size_t total_size = 0;
 
     std::vector<Ref<Segment>> segments = view->GetSegments();
 
     for (size_t i = 0; i < SCAN_RUNS; ++i)
     {
+        results.clear();
+
         if (!segments.empty())
         {
-            std::mutex mutex;
-
-            parallel_for_each(segments.begin(), segments.end(), [&, i] (const Ref<Segment>& segment)
+            parallel_for_each(segments.begin(), segments.end(), [&] (const Ref<Segment>& segment) -> bool
             {
                 if (task->IsCancelled())
                 {
-                    return;
+                    return false;
                 }
 
                 DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
 
-                std::vector<mem::pointer> sub_results =
+                bool result = ScanRegion(
+                    task, results, mutex,
 #if defined(ENABLE_JIT_COMPILATION)
-                    jit_pattern
+                    jit_pattern,
 #else
-                    pattern
+                    pattern,
 #endif
-                    .scan_all({ data.GetData(), data.GetLength() });
-
-                if (task->IsCancelled())
-                {
-                    return;
-                }
-
-                total_size += data.GetLength();
-
-                if (!i)
-                {
-                    if (!sub_results.empty())
-                    {
-                        std::lock_guard<std::mutex> lock(mutex);
-
-                        results.reserve(results.size() + sub_results.size());
-
-                        for (mem::pointer result : sub_results)
-                        {
-                            results.push_back(result.shift(data.GetData(), segment->GetStart()).as<uint64_t>());
-                        }
-                    }
-                }
+                    { data.GetData(), data.GetLength() },
+                    segment->GetStart(),
+                    total_size
+                );
 
                 task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
+
+                return true;
             });
         }
         else
         {
             DataBuffer data = view->ReadBuffer(view->GetStart(), view->GetLength());
 
-            std::vector<mem::pointer> sub_results = parallel_scan_all({ data.GetData(), data.GetLength() },
-#if defined(ENABLE_JIT_COMPILATION)
-                jit_pattern,
-#else
-                pattern,
-#endif
-                1024 * 1024 * 4,
-                pattern.size()
-            );
-
-            if (task->IsCancelled())
+            parallel_partition(data.GetLength(), 1024 * 1024 * 4, pattern.size(), [&] (size_t offset, size_t length)
             {
-                return;
-            }
-
-            total_size += data.GetLength();
-
-            if (!i)
-            {
-                for (mem::pointer result : sub_results)
+                if (task->IsCancelled())
                 {
-                    results.push_back(result.shift(data.GetData(), view->GetStart()).as<uint64_t>());
+                    return false;
                 }
-            }
+
+                bool result = ScanRegion(
+                    task, results, mutex,
+#if defined(ENABLE_JIT_COMPILATION)
+                    jit_pattern,
+#else
+                    pattern,
+#endif
+                    { data.GetDataAt(offset), length },
+                    view->GetStart(),
+                    total_size
+                );
+
+                task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
+
+                return true;
+            });
         }
     }
 
@@ -312,9 +226,18 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
     const auto elapsed_clocks = end_clocks - start_clocks;
 
+    if (results.size() >= MAX_SCAN_RESULTS)
+    {
+        report += fmt::format("Warning: Too many results, truncated to {}.\n\n", MAX_SCAN_RESULTS);
+
+        results.resize(MAX_SCAN_RESULTS);
+    }
+
+    std::sort(results.begin(), results.end());
+
     report += fmt::format("Found {} results for \"{}\" in {} ms:\n", results.size(), pattern_string, elapsed_ms);
     report += fmt::format("Scanned 0x{:X} bytes = {:.3f} GB/s\n", total_size, (total_size / 1'073'741'824.0) / (elapsed_ms / 1000.0));
-    report += fmt::format("Cycles Used: {} = {} cycles per byte\n", elapsed_clocks, double(elapsed_clocks) / double(total_size));
+    report += fmt::format("Cycles: {} = {} cycles per byte\n", elapsed_clocks, double(elapsed_clocks) / double(total_size));
 
     const size_t plength = pattern.size();
 
@@ -329,13 +252,6 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
             mem::as_hex({ pbytes, plength }, true, true),
             mem::as_hex({ pmasks, plength }, true, true)
         );
-    }
-
-    if (results.size() > MAX_SCAN_RESULTS)
-    {
-        report += fmt::format("Too many results, only showing first {}.\n", MAX_SCAN_RESULTS);
-
-        results.resize(MAX_SCAN_RESULTS);
     }
 
     report += "\n";
