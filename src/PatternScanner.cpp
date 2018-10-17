@@ -61,6 +61,7 @@ constexpr const size_t MAX_SCAN_RESULTS = 1000;
 
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #include <chrono>
 
@@ -130,6 +131,71 @@ void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryFunction& fun
 #endif
 }
 
+template <typename Pattern>
+std::vector<mem::pointer> parallel_scan_all(mem::region range, const Pattern& pattern, size_t partition_size, size_t overlap_size)
+{
+#if defined(ENABLE_MULTI_THREADING)
+    if (partition_size >= range.size)
+    {
+        return pattern.scan_all(range);
+    }
+
+    uint32_t thread_count = std::thread::hardware_concurrency();
+
+    if (thread_count == 0)
+    {
+        thread_count = 4;
+    }
+
+    std::mutex mutex;
+    std::atomic_size_t current = 0;
+    std::vector<mem::pointer> results;
+
+    const auto thread_loop = [&, range, partition_size, overlap_size]
+    {
+        while (true)
+        {
+            const size_t sub_current = current.fetch_add(partition_size);
+
+            if (sub_current < range.size)
+            {
+                std::vector<mem::pointer> sub_results = pattern.scan_all({
+                    range.start + sub_current, std::min<size_t>(partition_size + overlap_size, range.size - sub_current)
+                });
+
+                if (!sub_results.empty())
+                {
+                    std::lock_guard<std::mutex> guard(mutex);
+
+                    results.reserve(results.size() + sub_results.size());
+                    results.insert(results.end(), sub_results.begin(), sub_results.end());
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+    };
+
+    std::vector<std::thread> threads;
+
+    for (uint32_t i = 0; i < std::min<size_t>(thread_count, (range.size + partition_size - 1) / partition_size); ++i)
+    {
+        threads.emplace_back(thread_loop);
+    }
+
+    for (auto& thread : threads)
+    {
+        thread.join();
+    }
+
+    return results;
+#else
+    return pattern.scan_all(range);
+#endif
+}
+
 using stopwatch = std::chrono::steady_clock;
 
 void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string)
@@ -148,7 +214,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     mem::jit_pattern jit_pattern(&runtime, pattern);
 #endif
 
-    size_t total_size = 0;
+    std::atomic_size_t total_size = 0;
 
     std::vector<uint64_t> results;
 
@@ -169,12 +235,12 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
                 DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
 
-                std::vector<mem::pointer> scan_results =
-    #if defined(ENABLE_JIT_COMPILATION)
+                std::vector<mem::pointer> sub_results =
+#if defined(ENABLE_JIT_COMPILATION)
                     jit_pattern
-    #else
+#else
                     pattern
-    #endif
+#endif
                     .scan_all({ data.GetData(), data.GetLength() });
 
                 if (task->IsCancelled())
@@ -182,15 +248,20 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
                     return;
                 }
 
-                std::unique_lock<std::mutex> lock(mutex);
-
                 total_size += data.GetLength();
 
                 if (!i)
                 {
-                    for (mem::pointer result : scan_results)
+                    if (!sub_results.empty())
                     {
-                        results.push_back(result.shift(data.GetData(), segment->GetStart()).as<uint64_t>());
+                        std::lock_guard<std::mutex> lock(mutex);
+
+                        results.reserve(results.size() + sub_results.size());
+
+                        for (mem::pointer result : sub_results)
+                        {
+                            results.push_back(result.shift(data.GetData(), segment->GetStart()).as<uint64_t>());
+                        }
                     }
                 }
 
@@ -201,13 +272,15 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
         {
             DataBuffer data = view->ReadBuffer(view->GetStart(), view->GetLength());
 
-            std::vector<mem::pointer> scan_results =
-    #if defined(ENABLE_JIT_COMPILATION)
-                    jit_pattern
-    #else
-                    pattern
-    #endif
-                    .scan_all({ data.GetData(), data.GetLength() });
+            std::vector<mem::pointer> sub_results = parallel_scan_all({ data.GetData(), data.GetLength() },
+#if defined(ENABLE_JIT_COMPILATION)
+                jit_pattern,
+#else
+                pattern,
+#endif
+                1024 * 1024 * 4,
+                pattern.size()
+            );
 
             if (task->IsCancelled())
             {
@@ -218,7 +291,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
             if (!i)
             {
-                for (mem::pointer result : scan_results)
+                for (mem::pointer result : sub_results)
                 {
                     results.push_back(result.shift(data.GetData(), view->GetStart()).as<uint64_t>());
                 }
