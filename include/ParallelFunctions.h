@@ -87,7 +87,10 @@ inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredic
 
     return parallel_invoke_n(thread_count, thread_loop);
 #else
-    std::for_each(first, last, func);
+    while (first != last)
+    {
+        func(*first++);
+    }
 #endif
 }
 

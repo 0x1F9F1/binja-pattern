@@ -49,6 +49,7 @@
 
 constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
+constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 4;
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
@@ -80,8 +81,6 @@ uint64_t rdtsc()
     return (static_cast<uint64_t>(hi) << 32) | lo;
 }
 #endif
-
-using stopwatch = std::chrono::steady_clock;
 
 template <typename Pattern>
 bool ScanRegion(
@@ -129,8 +128,58 @@ bool ScanRegion(
     return true;
 }
 
+std::string GetInstructionContaningAddress(Ref<BasicBlock> block, uint64_t address)
+{
+    Ref<BinaryView> view = block->GetFunction()->GetView();
+    Ref<Architecture> arch = block->GetArchitecture();
+    size_t max_length = arch->GetMaxInstructionLength();
+
+    std::vector<uint8_t> buffer(max_length);
+
+    for (size_t i = block->GetStart(), end = block->GetEnd(); i < end;)
+    {
+        size_t bytes_read = view->Read(buffer.data(), i, buffer.size());
+
+        InstructionInfo info;
+
+        if (arch->GetInstructionInfo(buffer.data(), i, bytes_read, info))
+        {
+            if ((address >= i) && (address < (i + info.length)))
+            {
+                std::vector<InstructionTextToken> tokens;
+
+                if (arch->GetInstructionText(buffer.data(), i, bytes_read, tokens))
+                {
+                    std::string result;
+
+                    for (const InstructionTextToken& token : tokens)
+                    {
+                        result += token.text;
+                    }
+
+                    return result;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            i += info.length;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return "";
+}
+
 void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string)
 {
+    using stopwatch = std::chrono::steady_clock;
+
     const auto start_time = stopwatch::now();
     const auto start_clocks = rdtsc();
 
@@ -187,7 +236,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
         {
             DataBuffer data = view->ReadBuffer(view->GetStart(), view->GetLength());
 
-            parallel_partition(data.GetLength(), 1024 * 1024 * 4, pattern.size(), [&] (size_t offset, size_t length)
+            parallel_partition(data.GetLength(), PARTITION_SIZE, pattern.size(), [&] (size_t offset, size_t length)
             {
                 if (task->IsCancelled())
                 {
@@ -260,20 +309,24 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     {
         report += fmt::format("0x{:X}", result);
 
-        auto blocks = view->GetBasicBlocksForAddress(result);
+        std::vector<Ref<BasicBlock>> blocks = view->GetBasicBlocksForAddress(result);
 
         if (!blocks.empty())
         {
-            report += " (in ";
+            report += " (";
 
             for (size_t i = 0; i < blocks.size(); ++i)
             {
+                Ref<BasicBlock> block = blocks[i];
+
                 if (i)
                 {
                     report += ", ";
                 }
 
-                report += blocks[i]->GetFunction()->GetSymbol()->GetFullName();
+                std::string instr_text = GetInstructionContaningAddress(block, result);
+
+                report += fmt::format("{}: \"{}\"", block->GetFunction()->GetSymbol()->GetFullName(), instr_text);
             }
 
             report += ")";
