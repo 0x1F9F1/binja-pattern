@@ -25,7 +25,6 @@
 #include <mediumlevelilinstruction.h>
 
 #include <fmt/format.h>
-#include <memory>
 
 using namespace BinaryNinja;
 
@@ -36,6 +35,7 @@ void BinjaLog(BNLogLevel level, const String& format, const Args&... args)
 }
 
 #include <mem/mem.h>
+#include <memory>
 
 namespace brick
 {
@@ -44,6 +44,12 @@ namespace brick
         uint64_t start;
         uint64_t length;
         std::unique_ptr<uint8_t[ ]> data;
+
+        view_segment(uint64_t start_, uint64_t length_)
+            : start(start_)
+            , length(length_)
+            , data(new uint8_t[length_])
+        { }
     };
 
     struct view_data

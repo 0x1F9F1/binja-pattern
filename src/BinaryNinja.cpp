@@ -31,14 +31,7 @@ namespace brick
         {
             for (const Ref<Segment>& segment : view_segments)
             {
-                view_segment data
-                {
-                    segment->GetStart(),
-                    segment->GetLength(),
-                    nullptr
-                };
-
-                data.data = std::make_unique<uint8_t[ ]>(data.length);
+                view_segment data(segment->GetStart(), segment->GetLength());
 
                 if (segment->Read(view, data.data.get(), data.start, data.length) != data.length)
                 {
@@ -50,14 +43,7 @@ namespace brick
         }
         else
         {
-            view_segment data
-            {
-                view->GetStart(),
-                view->GetLength(),
-                nullptr
-            };
-
-            data.data = std::make_unique<uint8_t[ ]>(data.length);
+            view_segment data(view->GetStart(), view->GetLength());
 
             if (view->Read(data.data.get(), data.start, data.length) != data.length)
             {
