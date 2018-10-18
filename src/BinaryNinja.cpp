@@ -1,0 +1,71 @@
+/*
+    Copyright 2018 Brick
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+    and associated documentation files (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge, publish, distribute,
+    sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or
+    substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+    BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+#include "BinaryNinja.h"
+#include "ParallelFunctions.h"
+
+namespace brick
+{
+    view_data::view_data(Ref<BinaryView> view_)
+        : view(view_)
+    {
+        std::vector<Ref<Segment>> view_segments = view->GetSegments();
+
+        if (!view_segments.empty())
+        {
+            for (const Ref<Segment>& segment : view_segments)
+            {
+                view_segment data
+                {
+                    segment->GetStart(),
+                    segment->GetLength(),
+                    nullptr
+                };
+
+                data.data = std::make_unique<uint8_t[ ]>(data.length);
+
+                if (segment->Read(view, data.data.get(), data.start, data.length) != data.length)
+                {
+                    // TODO: Handle Errors
+                }
+
+                segments.emplace_back(std::move(data));
+            }
+        }
+        else
+        {
+            view_segment data
+            {
+                view->GetStart(),
+                view->GetLength(),
+                nullptr
+            };
+
+            data.data = std::make_unique<uint8_t[ ]>(data.length);
+
+            if (view->Read(data.data.get(), data.start, data.length) != data.length)
+            {
+                // TODO: Handle Errors
+            }
+
+            segments.emplace_back(std::move(data));
+        }
+    }
+}
+

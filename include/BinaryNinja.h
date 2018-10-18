@@ -16,15 +16,16 @@
     DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+
 #pragma once
 
-#include "binaryninjaapi.h"
-#include "binaryninjacore.h"
+#include <binaryninjaapi.h>
+#include <binaryninjacore.h>
+#include <lowlevelilinstruction.h>
+#include <mediumlevelilinstruction.h>
 
-#include "lowlevelilinstruction.h"
-#include "mediumlevelilinstruction.h"
-
-#include "fmt/format.h"
+#include <fmt/format.h>
+#include <memory>
 
 using namespace BinaryNinja;
 
@@ -32,4 +33,44 @@ template <typename String, typename... Args>
 void BinjaLog(BNLogLevel level, const String& format, const Args&... args)
 {
     BNLog(level, "%s", fmt::format(format, args...).c_str());
+}
+
+#include <mem/mem.h>
+
+namespace brick
+{
+    struct view_segment
+    {
+        uint64_t start;
+        uint64_t length;
+        std::unique_ptr<uint8_t[ ]> data;
+    };
+
+    struct view_data
+    {
+        Ref<BinaryView> view;
+        std::vector<view_segment> segments;
+
+        view_data(Ref<BinaryView> view);
+
+        template <typename Pattern>
+        std::vector<uint64_t> scan_all(const Pattern& pattern) const
+        {
+            std::vector<uint64_t> results;
+
+            for (const view_segment& segment : segments)
+            {
+                mem::region range { segment.data.get(), segment.length };
+
+                pattern.scan_predicate(range, [&, range] (mem::pointer result) -> bool
+                {
+                    results.emplace_back(result.shift(range.start, segment.start).as<uint64_t>());
+
+                    return false;
+                });
+            }
+
+            return results;
+        }
+    };
 }

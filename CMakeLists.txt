@@ -39,10 +39,14 @@ add_subdirectory(vendor EXCLUDE_FROM_ALL)
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
     src/PatternScanner.cpp
+    src/PatternLoader.cpp
+    src/BinaryNinja.cpp
     include/PatternScanner.h
+    include/PatternLoader.h
     include/BackgroundTaskThread.h
     include/BinaryNinja.h
-    include/ParallelFunctions.h)
+    include/ParallelFunctions.h
+    include/json.hpp)
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE include

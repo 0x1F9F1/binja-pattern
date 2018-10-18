@@ -62,7 +62,7 @@
 
 constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
-constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 4;
+constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
@@ -166,37 +166,38 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
     const auto total_start_time = stopwatch::now();
 
-    std::vector<Ref<Segment>> segments = view->GetSegments();
+    brick::view_data view_data (view);
 
-    const auto scan_region = [&] (mem::region range, uint64_t start)
+    for (size_t i = 0; i < SCAN_RUNS; ++i)
     {
+        results.clear();
+
         if (task->IsCancelled())
         {
-            return false;
+            break;
         }
 
         const auto start_time = stopwatch::now();
         const auto start_clocks = rdtsc();
 
-        std::vector<mem::pointer> sub_results =
+        std::vector<uint64_t> sub_results = view_data.scan_all(
 #if defined(ENABLE_JIT_COMPILATION)
             jit_pattern
 #else
             pattern
 #endif
-            .scan_all(range);
-
+        );
 
         const auto end_clocks = rdtsc();
         const auto end_time = stopwatch::now();
 
-        total_size += range.size;
+        total_size += 0; // TODO: FIX
         elapsed_ms += std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         elapsed_cycles += end_clocks - start_clocks;
 
         if (task->IsCancelled())
         {
-            return false;
+            break;
         }
 
         if (!sub_results.empty())
@@ -206,58 +207,14 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
             if (results.size() <= MAX_SCAN_RESULTS)
             {
                 results.reserve(results.size() + sub_results.size());
-
-                for (mem::pointer result : sub_results)
-                {
-                    results.push_back(result.shift(range.start, start).as<uint64_t>());
-                }
+                results.insert(results.end(), sub_results.begin(), sub_results.end());
             }
             else
             {
-                return false;
+                break;
             }
         }
-
-        return true;
-    };
-
-    for (size_t i = 0; i < SCAN_RUNS; ++i)
-    {
-        results.clear();
-
-        if (!segments.empty())
-        {
-            parallel_for_each(segments.begin(), segments.end(), [&] (const Ref<Segment>& segment) -> bool
-            {
-                if (task->IsCancelled())
-                {
-                    return false;
-                }
-
-                DataBuffer data = view->ReadBuffer(segment->GetStart(), segment->GetLength());
-
-                bool result = scan_region({ data.GetData(), data.GetLength() }, segment->GetStart());
-
-                task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
-
-                return true;
-            });
-        }
-        else
-        {
-            DataBuffer data = view->ReadBuffer(view->GetStart(), view->GetLength());
-
-            parallel_partition(data.GetLength(), PARTITION_SIZE, pattern.size(), [&] (size_t offset, size_t length)
-            {
-                bool result = scan_region({ data.GetDataAt(offset), length }, view->GetStart());
-
-                task->SetProgressText(fmt::format("Scanning for pattern: \"{}\", found {} results", pattern_string, results.size()));
-
-                return true;
-            });
-        }
     }
-
 
     const auto total_end_time = stopwatch::now();
 

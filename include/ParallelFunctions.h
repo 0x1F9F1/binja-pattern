@@ -76,11 +76,11 @@ inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredic
 
             if (first != last)
             {
-                auto value = *first++;
+                auto value = std::ref(*first++);
 
                 guard.unlock();
 
-                if (!func(std::move(value)))
+                if (!func(value))
                 {
                     break;
                 }
