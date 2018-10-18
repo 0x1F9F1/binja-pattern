@@ -38,15 +38,14 @@ public:
     template <typename Func, typename... Args>
     void Run(Func&& func, Args&&... args)
     {
-        thread_ = std::thread([ ] (Ref<BackgroundTaskThread> task, typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
+        thread_ = std::thread([task = Ref<BackgroundTaskThread>(this)] (typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
         {
             func(task.GetPtr(), std::move(args)...);
 
             task->Finish();
-            task->thread_.detach();
+        }, std::forward<Func>(func), std::forward<Args>(args)...);
 
-            task = nullptr;
-        }, Ref<BackgroundTaskThread>(this), std::forward<Func>(func), std::forward<Args>(args)...);
+        thread_.detach();
     }
 
     void Join()
