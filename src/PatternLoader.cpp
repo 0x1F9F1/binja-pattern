@@ -33,6 +33,8 @@
 #include <mem/jit_pattern.h>
 #endif
 
+#include <unordered_set>
+
 #include "ParallelFunctions.h"
 
 using json = nlohmann::json;
@@ -62,7 +64,7 @@ const std::unordered_map<std::string, std::function<bool(BinaryView*, uint64_t&,
                 return false;
             }
 
-            address += (offset + j.at("value").get<size_t>());
+            address += offset + j.at("value").get<size_t>();
 
             return true;
         } 
@@ -109,12 +111,11 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
         return;
     }
 
-    brick::view_data data (view);
+    const brick::view_data data(view);
 
     try
     {
-        json config = json::parse(input_stream);
-
+        const json config = json::parse(input_stream);
         const json& patterns = config.at("patterns");
 
         parallel_for_each(patterns.begin(), patterns.end(), [&] (const json& j) -> bool
@@ -155,7 +156,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
                 if (find != j.end())
                 {
-                    const auto count = find->get<uint32_t>();
+                    const auto count = find->get<size_t>();
 
                     if (count != scan_results.size())
                     {
@@ -171,7 +172,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
                 if (find != j.end())
                 {
-                    const auto index = find->get<uint32_t>();
+                    const auto index = find->get<size_t>();
 
                     if (index >= scan_results.size())
                     {
@@ -180,7 +181,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                         return true;
                     }
 
-                    scan_results = { scan_results[index] };
+                    scan_results = { scan_results.at(index) };
                 }
             }
 
@@ -206,14 +207,9 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                 }
             }
 
-            std::set<uint64_t> unique_scan_results;
+            std::unordered_set<uint64_t> unique_scan_results(scan_results.begin(), scan_results.end());
 
-            for (const auto& result : scan_results)
-            {
-                unique_scan_results.insert(result);
-            }
-
-            if (unique_scan_results.size() > 1)
+            if (unique_scan_results.size() != 1)
             {
                 std::string error;
 
