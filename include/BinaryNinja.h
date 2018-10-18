@@ -45,11 +45,7 @@ namespace brick
         uint64_t length;
         std::unique_ptr<uint8_t[ ]> data;
 
-        view_segment(uint64_t start_, uint64_t length_)
-            : start(start_)
-            , length(length_)
-            , data(new uint8_t[length_])
-        { }
+        view_segment(Ref<BinaryView> view, uint64_t start, uint64_t length);
     };
 
     struct view_data

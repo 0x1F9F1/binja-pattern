@@ -22,6 +22,17 @@
 
 namespace brick
 {
+    view_segment::view_segment(Ref<BinaryView> view, uint64_t start_, uint64_t length_)
+        : start(start_)
+        , length(length_)
+        , data(new uint8_t[length_])
+    {
+        if (view->Read(data.get(), start, length) != length)
+        {
+            // TODO: Handle Errors
+        }
+    }
+
     view_data::view_data(Ref<BinaryView> view_)
         : view(view_)
     {
@@ -29,28 +40,16 @@ namespace brick
 
         if (!view_segments.empty())
         {
+            segments.reserve(view_segments.size());
+
             for (const Ref<Segment>& segment : view_segments)
             {
-                view_segment data(segment->GetStart(), segment->GetLength());
-
-                if (segment->Read(view, data.data.get(), data.start, data.length) != data.length)
-                {
-                    // TODO: Handle Errors
-                }
-
-                segments.emplace_back(std::move(data));
+                segments.emplace_back(view, segment->GetStart(), segment->GetLength());
             }
         }
         else
         {
-            view_segment data(view->GetStart(), view->GetLength());
-
-            if (view->Read(data.data.get(), data.start, data.length) != data.length)
-            {
-                // TODO: Handle Errors
-            }
-
-            segments.emplace_back(std::move(data));
+            segments.emplace_back(view, view->GetStart(), view->GetLength());
         }
     }
 }
