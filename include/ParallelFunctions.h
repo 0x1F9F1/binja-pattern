@@ -21,14 +21,11 @@
 
 #include <cstdint>
 
-#if !defined(DISABLE_MULTI_THREADING)
 #include <thread>
 #include <mutex>
 #include <atomic>
 #include <vector>
-#endif
 
-#if !defined(DISABLE_MULTI_THREADING)
 template <typename UnaryFunction, typename... Args>
 inline void parallel_invoke_n(size_t thread_count, const UnaryFunction& func, const Args&... args)
 {
@@ -46,7 +43,6 @@ inline void parallel_invoke_n(size_t thread_count, const UnaryFunction& func, co
         thread.join();
     }
 }
-#endif
 
 inline size_t parallel_get_thread_count()
 {
@@ -63,7 +59,6 @@ inline size_t parallel_get_thread_count()
 template <typename ForwardIt, typename UnaryPredicate>
 inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredicate& func)
 {
-#if !defined(DISABLE_MULTI_THREADING)
     size_t thread_count = parallel_get_thread_count();
 
     std::mutex mutex;
@@ -76,11 +71,11 @@ inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredic
 
             if (first != last)
             {
-                auto value = std::ref(*first++);
+                auto&& value = *first++;
 
                 guard.unlock();
 
-                if (!func(value))
+                if (!func(std::forward<decltype(value)>(value)))
                 {
                     break;
                 }
@@ -93,18 +88,11 @@ inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredic
     };
 
     return parallel_invoke_n(thread_count, thread_loop);
-#else
-    while (first != last)
-    {
-        func(*first++);
-    }
-#endif
 }
 
 template <typename UnaryPredicate>
 inline void parallel_partition(const size_t total, const size_t partition, const size_t overlap, const UnaryPredicate& func)
 {
-#if !defined(DISABLE_MULTI_THREADING)
     if (partition >= total)
     {
         func(0, total);
@@ -139,9 +127,4 @@ inline void parallel_partition(const size_t total, const size_t partition, const
     };
 
     return parallel_invoke_n(thread_count, thread_loop);
-#else
-    func(0, total);
-
-    return;
-#endif
 }

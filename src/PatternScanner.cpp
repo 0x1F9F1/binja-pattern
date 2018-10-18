@@ -58,7 +58,6 @@
 
 #define ENABLE_JIT_COMPILATION
 #define ENABLE_PATTERN_SKIPS
-// #define DISABLE_MULTI_THREADING
 
 constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
@@ -159,10 +158,10 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 #endif
 
     std::vector<uint64_t> results;
-    std::mutex mutex;
-    std::atomic_size_t total_size {0};
-    std::atomic_int64_t elapsed_ms {0};
-    std::atomic_uint64_t elapsed_cycles {0};
+
+    size_t total_size {0};
+    int64_t elapsed_ms {0};
+    uint64_t elapsed_cycles {0};
 
     const auto total_start_time = stopwatch::now();
 
@@ -191,7 +190,11 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
         const auto end_clocks = rdtsc();
         const auto end_time = stopwatch::now();
 
-        total_size += 0; // TODO: FIX
+        for (const auto& seg : view_data.segments)
+        {
+            total_size += seg.length;
+        }
+
         elapsed_ms += std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         elapsed_cycles += end_clocks - start_clocks;
 
@@ -202,8 +205,6 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
         if (!sub_results.empty())
         {
-            std::lock_guard<std::mutex> lock(mutex);
-
             if (results.size() <= MAX_SCAN_RESULTS)
             {
                 results.reserve(results.size() + sub_results.size());

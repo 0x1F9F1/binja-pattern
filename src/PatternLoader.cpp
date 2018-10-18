@@ -25,7 +25,6 @@
 
 #define ENABLE_JIT_COMPILATION
 #define ENABLE_PATTERN_SKIPS
-// #define DISABLE_MULTI_THREADING
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
