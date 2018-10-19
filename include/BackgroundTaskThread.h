@@ -35,17 +35,25 @@ public:
         : BackgroundTask(initialText, true)
     { }
 
+    ~BackgroundTaskThread()
+    {
+        if (thread_.joinable())
+        {
+            thread_.detach();
+        }
+    }
+
     template <typename Func, typename... Args>
     void Run(Func&& func, Args&&... args)
     {
-        thread_ = std::thread([task = Ref<BackgroundTaskThread>(this)] (typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
+        Ref<BackgroundTaskThread> task(this);
+
+        thread_ = std::thread([task] (typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
         {
             func(task.GetPtr(), std::move(args)...);
 
             task->Finish();
         }, std::forward<Func>(func), std::forward<Args>(args)...);
-
-        thread_.detach();
     }
 
     void Join()
