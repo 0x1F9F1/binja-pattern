@@ -29,6 +29,18 @@
 template <typename UnaryFunction, typename... Args>
 inline void parallel_invoke_n(size_t thread_count, const UnaryFunction& func, const Args&... args)
 {
+    if (thread_count == 0)
+    {
+        return;
+    }
+
+    if (thread_count == 1)
+    {
+        func(0, args...);
+
+        return;
+    }
+
     std::vector<std::thread> threads;
 
     threads.reserve(thread_count);
@@ -50,20 +62,18 @@ inline size_t parallel_get_thread_count()
 
     if (!result)
     {
-        result = 2;
+        result = 1;
     }
 
-    return 4;
+    return result;
 }
 
 template <typename ForwardIt, typename UnaryPredicate>
 inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredicate& func)
 {
-    size_t thread_count = parallel_get_thread_count();
-
     std::mutex mutex;
 
-    const auto thread_loop = [&] (size_t /*thread_index*/)
+    return parallel_invoke_n(parallel_get_thread_count(), [&] (size_t /*thread_index*/)
     {
         while (true)
         {
@@ -85,13 +95,11 @@ inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredic
                 break;
             }
         }
-    };
-
-    return parallel_invoke_n(thread_count, thread_loop);
+    });
 }
 
 template <typename UnaryPredicate>
-inline void parallel_partition(const size_t total, const size_t partition, const size_t overlap, const UnaryPredicate& func)
+inline void parallel_partition(size_t total, size_t partition, size_t overlap, const UnaryPredicate& func)
 {
     if (partition >= total)
     {
@@ -100,13 +108,10 @@ inline void parallel_partition(const size_t total, const size_t partition, const
         return;
     }
 
-    size_t thread_count = parallel_get_thread_count();
-
-    thread_count = std::min<size_t>(thread_count, (total + partition - 1) / partition);
-
     std::atomic_size_t current {0};
 
-    const auto thread_loop = [&, total, partition, overlap] (size_t /*thread_index*/)
+    return parallel_invoke_n(std::min<size_t>(parallel_get_thread_count(), (total + partition - 1) / partition),
+        [&, total, partition, overlap] (size_t /*thread_index*/)
     {
         while (true)
         {
@@ -124,7 +129,5 @@ inline void parallel_partition(const size_t total, const size_t partition, const
                 break;
             }
         }
-    };
-
-    return parallel_invoke_n(thread_count, thread_loop);
+    });
 }
