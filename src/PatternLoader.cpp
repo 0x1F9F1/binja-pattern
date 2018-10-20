@@ -231,7 +231,12 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
             if (type == "Function")
             {
-                view->CreateUserFunction(view->GetDefaultPlatform(), offset);
+                Ref<Platform> platform = view->GetDefaultPlatform();
+
+                if (platform)
+                {
+                    view->CreateUserFunction(platform, offset);
+                }
 
                 symbol_type = FunctionSymbol;
             }
