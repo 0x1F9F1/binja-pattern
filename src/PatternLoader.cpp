@@ -131,6 +131,13 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 #endif
             );
 
+            if (!pattern)
+            {
+                BinjaLog(ErrorLog, "Pattern \"{}\" is empty of malformed", pattern_string);
+
+                return true;
+            }
+
 #if defined(ENABLE_JIT_COMPILATION)
             mem::jit_runtime runtime;
             mem::jit_pattern jit_pattern(&runtime, pattern);
