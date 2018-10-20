@@ -43,14 +43,14 @@ const std::unordered_map<std::string, std::function<bool(BinaryView*, uint64_t&,
 {
     { "add", [ ] (BinaryView* view, uint64_t& address, const json& j) -> bool
         {
-            return address += j.at("value").get<size_t>();
+            address += j.at("value").get<size_t>();
 
             return true;
         }
     },
     { "sub", [ ] (BinaryView* view, uint64_t& address, const json& j) -> bool
         {
-            return address -= j.at("value").get<size_t>();
+            address -= j.at("value").get<size_t>();
 
             return true;
         }
@@ -67,7 +67,7 @@ const std::unordered_map<std::string, std::function<bool(BinaryView*, uint64_t&,
             address += offset + j.at("value").get<size_t>();
 
             return true;
-        } 
+        }
     },
     { "abs", [ ] (BinaryView* view, uint64_t& address, const json&) -> bool
         {
@@ -151,7 +151,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                 return true;
             }
 
-            {           
+            {
                 const auto find = j.find("count");
 
                 if (find != j.end())
@@ -219,7 +219,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                 }
 
                 BinjaLog(InfoLog, "Differing Results: {}", error);
-                
+
                 return true;
             }
 
