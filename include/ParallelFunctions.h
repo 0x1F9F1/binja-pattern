@@ -115,7 +115,7 @@ inline void parallel_partition(size_t total, size_t partition, size_t overlap, c
     {
         while (true)
         {
-            const size_t sub_current = current.fetch_add(partition);
+            const size_t sub_current = current.fetch_add(partition, std::memory_order_relaxed);
 
             if (sub_current < total)
             {

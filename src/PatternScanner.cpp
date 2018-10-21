@@ -56,12 +56,8 @@
     15% faster parallel_partition
 */
 
-#define ENABLE_JIT_COMPILATION
 #define ENABLE_PATTERN_SKIPS
-
-constexpr const size_t SCAN_RUNS = 1;
-constexpr const size_t MAX_SCAN_RESULTS = 1000;
-constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
+#define ENABLE_JIT_COMPILATION
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
@@ -69,6 +65,10 @@ constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
 #if defined(ENABLE_JIT_COMPILATION)
 #include <mem/jit_pattern.h>
 #endif
+
+constexpr const size_t SCAN_RUNS = 1;
+constexpr const size_t MAX_SCAN_RESULTS = 1000;
+constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
 
 #include "BackgroundTaskThread.h"
 #include "ParallelFunctions.h"
@@ -142,19 +142,13 @@ std::string GetInstructionContaningAddress(Ref<BasicBlock> block, uint64_t addre
     return "";
 }
 
-void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string)
+void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view, const mem::pattern& pattern, const std::string& pattern_string)
 {
     using stopwatch = std::chrono::steady_clock;
 
-    mem::pattern pattern(pattern_string.c_str()
-#if !defined(ENABLE_PATTERN_SKIPS)
-        , mem::pattern_settings {0,0}
-#endif
-    );
-
     if (!pattern)
     {
-        BinjaLog(ErrorLog, "Pattern \"{}\" is empty of malformed", pattern_string);
+        BinjaLog(ErrorLog, "Pattern \"{}\" is empty or malformed", pattern_string);
 
         return;
     }
@@ -297,14 +291,51 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     BinaryNinja::ShowPlainTextReport("Scan Results", report);
 }
 
+void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string, std::string mask_string)
+{
+    mem::pattern_settings settings
+    {
+    #if !defined(ENABLE_PATTERN_SKIPS)
+        0, 0
+    #endif
+    };
+
+    if (mask_string.empty())
+    {
+        mem::pattern pattern(pattern_string.c_str(), settings);
+
+        ScanForArrayOfBytesInternal(task, view, pattern, pattern_string);
+    }
+    else
+    {
+        std::string pattern_bytes = mem::unescape_string({ pattern_string.c_str(), pattern_string.size() });
+
+        if (pattern_bytes.size() != mask_string.size())
+        {
+            BinjaLog(ErrorLog, "Pattern/Mask Length Mismatch ({} != {} for {}, {})", pattern_bytes.size(), mask_string.size(), pattern_string, mask_string);
+
+            return;
+        }
+
+        mem::pattern pattern(pattern_bytes.c_str(), mask_string.c_str(), settings);
+
+        ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);   
+    }
+}
+
 void ScanForArrayOfBytes(Ref<BinaryView> view)
 {
     std::string pattern_string;
 
-    if (BinaryNinja::GetTextLineInput(pattern_string, "Pattern", "Input Pattern"))
+    std::vector<FormInputField> fields;
+
+    fields.push_back(FormInputField::TextLine("Pattern"));
+    fields.push_back(FormInputField::TextLine("Mask (Optional)"));
+
+    if (BinaryNinja::GetFormInput(fields, "Input Pattern"))
     {
         Ref<BackgroundTaskThread> task = new BackgroundTaskThread(fmt::format("Scanning for pattern: \"{}\"", pattern_string));
 
-        task->Run(&ScanForArrayOfBytesTask, view, pattern_string);
+        task->Run(ScanForArrayOfBytesTask, view, fields[0].stringResult, fields[1].stringResult);
     }
 }

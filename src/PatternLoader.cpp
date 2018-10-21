@@ -133,7 +133,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
             if (!pattern)
             {
-                BinjaLog(ErrorLog, "Pattern \"{}\" is empty of malformed", pattern_string);
+                BinjaLog(ErrorLog, "Pattern \"{}\" is empty or malformed", pattern_string);
 
                 return true;
             }
