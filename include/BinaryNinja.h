@@ -45,9 +45,9 @@ namespace brick
     {
         uint64_t start;
         uint64_t length;
-        mem::device_data data;
+        mem::cuda_device_data data;
 
-        view_segment(Ref<BinaryView> view, uint64_t start, uint64_t length);
+        view_segment(mem::cuda_runtime* runtime, Ref<BinaryView> view, uint64_t start, uint64_t length);
     };
 
     struct view_data
@@ -55,7 +55,7 @@ namespace brick
         Ref<BinaryView> view;
         std::vector<view_segment> segments;
 
-        view_data(Ref<BinaryView> view);
+        view_data(mem::cuda_runtime* runtime, Ref<BinaryView> view);
 
         std::vector<uint64_t> scan_all(const mem::cuda_pattern& pattern) const
         {

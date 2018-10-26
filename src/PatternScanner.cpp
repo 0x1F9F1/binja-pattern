@@ -145,9 +145,12 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
         return;
     }
 
-    mem::set_cuda_device(0);
+    mem::cuda_runtime runtime;
 
-    mem::cuda_pattern c_pattern(pattern);
+    runtime.force_init();
+
+    brick::view_data view_data(&runtime, view);
+    mem::cuda_pattern c_pattern(&runtime, pattern);
 
     std::vector<uint64_t> results;
 
@@ -156,8 +159,6 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
     uint64_t elapsed_cycles {0};
 
     const auto total_start_time = stopwatch::now();
-
-    brick::view_data view_data (view);
 
     for (size_t i = 0; i < SCAN_RUNS; ++i)
     {

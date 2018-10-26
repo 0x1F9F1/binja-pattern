@@ -95,6 +95,8 @@ case sizeof(TYPE): \
 
 void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string file_name)
 {
+    using stopwatch = std::chrono::steady_clock;
+
     std::ifstream input_stream(file_name);
 
     if (!input_stream.good())
@@ -104,10 +106,17 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
         return;
     }
 
-    const brick::view_data data(view);
+    mem::cuda_runtime runtime;
+
+    runtime.force_init();
+
+    brick::view_data data(&runtime, view);
+
 
     try
     {
+        const auto total_start_time = stopwatch::now();
+
         const json config = json::parse(input_stream);
         const json& patterns = config.at("patterns");
 
@@ -127,11 +136,15 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                 return true;
             }
 
-            mem::cuda_pattern c_pattern(pattern);
+            mem::cuda_pattern c_pattern(&runtime, pattern);
+
+            const auto start_time = stopwatch::now();
 
             std::vector<uint64_t> scan_results = data.scan_all(
                 c_pattern
             );
+
+            const auto end_time = stopwatch::now();
 
             if (scan_results.empty())
             {
@@ -214,7 +227,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
             uint64_t offset = *unique_scan_results.begin();
 
-            BinjaLog(InfoLog, "Found {} @ 0x{:X}\n", name, offset);
+            BinjaLog(InfoLog, "Found {} @ 0x{:X} in {} ms\n", name, offset, std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 
             BNSymbolType symbol_type = DataSymbol;
 
@@ -236,6 +249,13 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
             return true;
         });
+
+        const auto total_end_time = stopwatch::now();
+
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
+
+        BinjaLog(InfoLog, "Found {} patterns in {} ms ({} ms avg)\n", patterns.size(), elapsed_ms, (double) elapsed_ms / (double) patterns.size());
+
     }
     catch (const std::exception&)
     {

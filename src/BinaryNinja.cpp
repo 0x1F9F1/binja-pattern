@@ -34,13 +34,13 @@ namespace brick
         return result;
     }
 
-    view_segment::view_segment(Ref<BinaryView> view, uint64_t start_, uint64_t length_)
+    view_segment::view_segment(mem::cuda_runtime* runtime, Ref<BinaryView> view, uint64_t start_, uint64_t length_)
         : start(start_)
         , length(length_)
-        , data(ReadBinaryViewData(view, start, length).get(), length)
+        , data(runtime, ReadBinaryViewData(view, start_, length_).get(), length_)
     { }
 
-    view_data::view_data(Ref<BinaryView> view_)
+    view_data::view_data(mem::cuda_runtime* runtime, Ref<BinaryView> view_)
         : view(view_)
     {
         std::vector<Ref<Segment>> view_segments = view->GetSegments();
@@ -49,12 +49,12 @@ namespace brick
         {
             for (const Ref<Segment>& segment : view_segments)
             {
-                segments.emplace_back(view, segment->GetStart(), segment->GetLength());
+                segments.emplace_back(runtime, view, segment->GetStart(), segment->GetLength());
             }
         }
         else
         {
-            segments.emplace_back(view, view->GetStart(), view->GetLength());
+            segments.emplace_back(runtime, view, view->GetStart(), view->GetLength());
         }
     }
 }
