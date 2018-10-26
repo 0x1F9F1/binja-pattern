@@ -37,13 +37,15 @@ void BinjaLog(BNLogLevel level, const String& format, const Args&... args)
 #include <mem/mem.h>
 #include <memory>
 
+#include <mem/cuda_pattern.h>
+
 namespace brick
 {
     struct view_segment
     {
         uint64_t start;
         uint64_t length;
-        std::unique_ptr<uint8_t[ ]> data;
+        mem::device_data data;
 
         view_segment(Ref<BinaryView> view, uint64_t start, uint64_t length);
     };
@@ -55,21 +57,20 @@ namespace brick
 
         view_data(Ref<BinaryView> view);
 
-        template <typename Pattern>
-        std::vector<uint64_t> scan_all(const Pattern& pattern) const
+        std::vector<uint64_t> scan_all(const mem::cuda_pattern& pattern) const
         {
             std::vector<uint64_t> results;
 
             for (const view_segment& segment : segments)
             {
-                mem::region range { segment.data.get(), segment.length };
+                std::vector<size_t> sub_results = pattern.scan_all(segment.data);
 
-                pattern.scan_predicate(range, [&, range] (mem::pointer result) -> bool
+                results.reserve(results.size() + sub_results.size());
+
+                for (size_t sub_result : sub_results)
                 {
-                    results.emplace_back(result.shift(range.start, segment.start).as<uint64_t>());
-
-                    return false;
-                });
+                    results.emplace_back(segment.start + sub_result);
+                }
             }
 
             return results;

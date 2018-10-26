@@ -4,9 +4,9 @@
 [submodule "vendor/fmt"]
 	path = vendor/fmt
 	url = https://github.com/fmtlib/fmt.git
-[submodule "vendor/mem_jit"]
-	path = vendor/mem_jit
-	url = https://github.com/DatBrick/mem_jit.git
 [submodule "vendor/mem"]
 	path = vendor/mem
 	url = https://github.com/DatBrick/mem.git
+[submodule "vendor/mem_cuda"]
+	path = vendor/mem_cuda
+	url = https://github.com/DatBrick/mem_cuda.git

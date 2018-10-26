@@ -56,19 +56,11 @@
     15% faster parallel_partition
 */
 
-#define ENABLE_PATTERN_SKIPS
-#define ENABLE_JIT_COMPILATION
-
 #include <mem/pattern.h>
 #include <mem/utils.h>
 
-#if defined(ENABLE_JIT_COMPILATION)
-#include <mem/jit_pattern.h>
-#endif
-
 constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
-constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
 
 #include "BackgroundTaskThread.h"
 #include "ParallelFunctions.h"
@@ -153,10 +145,9 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
         return;
     }
 
-#if defined(ENABLE_JIT_COMPILATION)
-    mem::jit_runtime runtime;
-    mem::jit_pattern jit_pattern(&runtime, pattern);
-#endif
+    mem::set_cuda_device(0);
+
+    mem::cuda_pattern c_pattern(pattern);
 
     std::vector<uint64_t> results;
 
@@ -181,11 +172,7 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
         const auto start_clocks = rdtsc();
 
         std::vector<uint64_t> sub_results = view_data.scan_all(
-#if defined(ENABLE_JIT_COMPILATION)
-            jit_pattern
-#else
-            pattern
-#endif
+            c_pattern
         );
 
         const auto end_clocks = rdtsc();
@@ -295,9 +282,6 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 {
     mem::pattern_settings settings
     {
-    #if !defined(ENABLE_PATTERN_SKIPS)
-        0, 0
-    #endif
     };
 
     if (mask_string.empty())
