@@ -102,6 +102,8 @@ case sizeof(TYPE): \
 
 void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string file_name)
 {
+    using stopwatch = std::chrono::steady_clock;
+
     std::ifstream input_stream(file_name);
 
     if (!input_stream.good())
@@ -115,6 +117,8 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
     try
     {
+        const auto total_start_time = stopwatch::now();
+
         const json config = json::parse(input_stream);
         const json& patterns = config.at("patterns");
 
@@ -254,6 +258,12 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
             return true;
         });
+
+        const auto total_end_time = stopwatch::now();
+
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
+
+        BinjaLog(InfoLog, "Found {} patterns in {} ms ({} ms avg)\n", patterns.size(), elapsed_ms, (double) elapsed_ms / (double) patterns.size());
     }
     catch (const std::exception&)
     {
