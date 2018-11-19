@@ -64,7 +64,7 @@ namespace brick
             {
                 mem::region range { segment.data.get(), segment.length };
 
-                pattern.scan_predicate(range, [&, range] (mem::pointer result) -> bool
+                pattern(range, [&, range] (mem::pointer result) -> bool
                 {
                     results.emplace_back(result.shift(range.start, segment.start).as<uint64_t>());
 

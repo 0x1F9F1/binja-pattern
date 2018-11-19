@@ -56,14 +56,13 @@
     15% faster parallel_partition
 */
 
-#define ENABLE_PATTERN_SKIPS
 #define ENABLE_JIT_COMPILATION
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
 
 #if defined(ENABLE_JIT_COMPILATION)
-#include <mem/jit_pattern.h>
+# include <mem/jit_scanner.h>
 #endif
 
 constexpr const size_t SCAN_RUNS = 1;
@@ -155,7 +154,9 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
 #if defined(ENABLE_JIT_COMPILATION)
     mem::jit_runtime runtime;
-    mem::jit_pattern jit_pattern(&runtime, pattern);
+    mem::jit_scanner scanner(&runtime, pattern);
+#else
+    mem::default_scanner scanner(pattern);
 #endif
 
     std::vector<uint64_t> results;
@@ -180,13 +181,7 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
         const auto start_time = stopwatch::now();
         const auto start_clocks = rdtsc();
 
-        std::vector<uint64_t> sub_results = view_data.scan_all(
-#if defined(ENABLE_JIT_COMPILATION)
-            jit_pattern
-#else
-            pattern
-#endif
-        );
+        std::vector<uint64_t> sub_results = view_data.scan_all(scanner);
 
         const auto end_clocks = rdtsc();
         const auto end_time = stopwatch::now();
@@ -293,22 +288,15 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
 void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string, std::string mask_string)
 {
-    mem::pattern_settings settings
-    {
-    #if !defined(ENABLE_PATTERN_SKIPS)
-        0, 0
-    #endif
-    };
-
     if (mask_string.empty())
     {
-        mem::pattern pattern(pattern_string.c_str(), settings);
+        mem::pattern pattern(pattern_string.c_str());
 
         ScanForArrayOfBytesInternal(task, view, pattern, pattern_string);
     }
     else
     {
-        std::string pattern_bytes = mem::unescape_string({ pattern_string.c_str(), pattern_string.size() });
+        std::string pattern_bytes = mem::unescape(pattern_string.c_str(), pattern_string.size());
 
         if (pattern_bytes.size() != mask_string.size())
         {
@@ -317,7 +305,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
             return;
         }
 
-        mem::pattern pattern(pattern_bytes.c_str(), mask_string.c_str(), settings);
+        mem::pattern pattern(pattern_bytes.c_str(), mask_string.c_str());
 
         ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);   
     }
@@ -325,8 +313,6 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
 void ScanForArrayOfBytes(Ref<BinaryView> view)
 {
-    std::string pattern_string;
-
     std::vector<FormInputField> fields;
 
     fields.push_back(FormInputField::TextLine("Pattern"));
@@ -334,8 +320,10 @@ void ScanForArrayOfBytes(Ref<BinaryView> view)
 
     if (BinaryNinja::GetFormInput(fields, "Input Pattern"))
     {
+        std::string pattern_string = fields[0].stringResult, mask_string = fields[1].stringResult;
+
         Ref<BackgroundTaskThread> task = new BackgroundTaskThread(fmt::format("Scanning for pattern: \"{}\"", pattern_string));
 
-        task->Run(ScanForArrayOfBytesTask, view, fields[0].stringResult, fields[1].stringResult);
+        task->Run(ScanForArrayOfBytesTask, view, pattern_string, mask_string);
     }
 }

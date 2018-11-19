@@ -24,13 +24,12 @@
 #include <fstream>
 
 #define ENABLE_JIT_COMPILATION
-#define ENABLE_PATTERN_SKIPS
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
 
 #if defined(ENABLE_JIT_COMPILATION)
-#include <mem/jit_pattern.h>
+# include <mem/jit_scanner.h>
 #endif
 
 #include <unordered_set>
@@ -129,11 +128,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
             std::string desc = j.at("desc").get<std::string>();
             std::string pattern_string = j.at("pattern").get<std::string>();
 
-            mem::pattern pattern(pattern_string.c_str()
-#if !defined(ENABLE_PATTERN_SKIPS)
-                , mem::pattern_settings {0,0}
-#endif
-            );
+            mem::pattern pattern(pattern_string.c_str());
 
             if (!pattern)
             {
@@ -144,16 +139,12 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
 #if defined(ENABLE_JIT_COMPILATION)
             mem::jit_runtime runtime;
-            mem::jit_pattern jit_pattern(&runtime, pattern);
+            mem::jit_scanner scanner(&runtime, pattern);
+#else
+            mem::default_scanner scanner(pattern);
 #endif
 
-            std::vector<uint64_t> scan_results = data.scan_all(
-#if defined(ENABLE_JIT_COMPILATION)
-                jit_pattern
-#else
-                pattern
-#endif
-            );
+            std::vector<uint64_t> scan_results = data.scan_all(scanner);
 
             if (scan_results.empty())
             {
