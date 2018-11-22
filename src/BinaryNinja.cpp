@@ -18,20 +18,39 @@
 */
 
 #include "BinaryNinja.h"
-#include "PatternScanner.h"
-#include "PatternLoader.h"
+#include "ParallelFunctions.h"
 
-#include <mem/platform-inl.h>
-
-extern "C"
+namespace brick
 {
-    BINARYNINJAPLUGIN bool CorePluginInit()
+    view_segment::view_segment(Ref<BinaryView> view, uint64_t start_, uint64_t length_)
+        : start(start_)
+        , length(length_)
+        , data(new uint8_t[length_])
     {
-        PluginCommand::Register("Scan for Pattern", "Scans for an array of bytes", &ScanForArrayOfBytes);
-        PluginCommand::Register("Load Pattern File", "Loads a file containing patterns", &LoadPatternFile);
-
-        BinjaLog(InfoLog, "Loaded binja-pattern");
-
-        return true;
+        if (view->Read(data.get(), start, length) != length)
+        {
+            // TODO: Handle Errors
+        }
     }
-};
+
+    view_data::view_data(Ref<BinaryView> view_)
+        : view(view_)
+    {
+        std::vector<Ref<Segment>> view_segments = view->GetSegments();
+
+        if (!view_segments.empty())
+        {
+            segments.reserve(view_segments.size());
+
+            for (const Ref<Segment>& segment : view_segments)
+            {
+                segments.emplace_back(view, segment->GetStart(), segment->GetLength());
+            }
+        }
+        else
+        {
+            segments.emplace_back(view, view->GetStart(), view->GetLength());
+        }
+    }
+}
+

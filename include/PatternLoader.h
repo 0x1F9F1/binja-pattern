@@ -17,21 +17,8 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+#pragma once
+
 #include "BinaryNinja.h"
-#include "PatternScanner.h"
-#include "PatternLoader.h"
 
-#include <mem/platform-inl.h>
-
-extern "C"
-{
-    BINARYNINJAPLUGIN bool CorePluginInit()
-    {
-        PluginCommand::Register("Scan for Pattern", "Scans for an array of bytes", &ScanForArrayOfBytes);
-        PluginCommand::Register("Load Pattern File", "Loads a file containing patterns", &LoadPatternFile);
-
-        BinjaLog(InfoLog, "Loaded binja-pattern");
-
-        return true;
-    }
-};
+void LoadPatternFile(Ref<BinaryView> view);
