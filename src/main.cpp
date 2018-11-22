@@ -21,6 +21,8 @@
 #include "PatternScanner.h"
 #include "PatternLoader.h"
 
+#include <mem/platform-inl.h>
+
 extern "C"
 {
     BINARYNINJAPLUGIN bool CorePluginInit()

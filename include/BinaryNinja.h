@@ -55,8 +55,8 @@ namespace brick
 
         view_data(Ref<BinaryView> view);
 
-        template <typename Pattern>
-        std::vector<uint64_t> scan_all(const Pattern& pattern) const
+        template <typename Scanner>
+        std::vector<uint64_t> scan_all(const Scanner& scanner) const
         {
             std::vector<uint64_t> results;
 
@@ -64,7 +64,7 @@ namespace brick
             {
                 mem::region range { segment.data.get(), segment.length };
 
-                pattern(range, [&, range] (mem::pointer result) -> bool
+                scanner(range, [&, range] (mem::pointer result) -> bool
                 {
                     results.emplace_back(result.shift(range.start, segment.start).as<uint64_t>());
 

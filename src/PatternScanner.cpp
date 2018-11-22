@@ -60,6 +60,7 @@
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
+#include <mem/platform.h>
 
 #if defined(ENABLE_JIT_COMPILATION)
 # include <mem/jit_scanner.h>
@@ -76,22 +77,6 @@ constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
 #include <atomic>
 
 #include <chrono>
-
-#if defined(_WIN32)
-#include <intrin.h>
-
-uint64_t rdtsc()
-{
-    return __rdtsc();
-}
-#else
-uint64_t rdtsc()
-{
-    uint32_t lo, hi;
-    __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-    return (static_cast<uint64_t>(hi) << 32) | lo;
-}
-#endif
 
 std::string GetInstructionContaningAddress(Ref<BasicBlock> block, uint64_t address)
 {
@@ -179,11 +164,11 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
         }
 
         const auto start_time = stopwatch::now();
-        const auto start_clocks = rdtsc();
+        const auto start_clocks = mem::rdtsc();
 
         std::vector<uint64_t> sub_results = view_data.scan_all(scanner);
 
-        const auto end_clocks = rdtsc();
+        const auto end_clocks = mem::rdtsc();
         const auto end_time = stopwatch::now();
 
         for (const auto& seg : view_data.segments)
@@ -307,7 +292,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
         mem::pattern pattern(pattern_bytes.c_str(), mask_string.c_str());
 
-        ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);   
+        ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);
     }
 }
 
