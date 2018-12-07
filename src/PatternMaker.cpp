@@ -91,7 +91,7 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         {
             std::memset(current_masks + disp.offset, 0x00, (disp.size + 7) / 8);
 
-            BinjaLog(InfoLog, "Disp 0x{:X}, {}, {}", current_addr, disp.offset, disp.size);
+            // BinjaLog(InfoLog, "Disp 0x{:X}, {}, {}", current_addr, disp.offset, disp.size);
         }
 
         for (size_t i = 0; i < 2; ++i)
@@ -102,7 +102,7 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
             {
                 std::memset(current_masks + imm.offset, 0x00, (imm.size + 7) / 8);
 
-                BinjaLog(InfoLog, "Imm{} 0x{:X}, {}, {}", i, current_addr, imm.offset, imm.size);
+                // BinjaLog(InfoLog, "Imm{} 0x{:X}, {}, {}", i, current_addr, imm.offset, imm.size);
             }
         }
 
