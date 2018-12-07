@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(binja_pattern CXX)
 
-set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
+set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(WIN32)
     set(BINJA_DIR "C:\\Program Files\\Vector35\\BinaryNinja"
@@ -29,10 +30,6 @@ find_library(BINJA_CORE_LIBRARY
     PATHS ${BINJA_BIN_DIR})
 
 message("Binary Ninja Core at " ${BINJA_CORE_LIBRARY})
-
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    list(APPEND CMAKE_CXX_FLAGS "-fPIC")
-endif()
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
