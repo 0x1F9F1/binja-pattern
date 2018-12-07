@@ -1,9 +1,15 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-
-project(binja_pattern CXX)
+set(CMAKE_POLICY_DEFAULT_CMP0063 NEW)
 
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
+project(binja_pattern CXX)
 
 if(WIN32)
     set(BINJA_DIR "C:\\Program Files\\Vector35\\BinaryNinja"
