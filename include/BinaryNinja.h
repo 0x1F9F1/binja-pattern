@@ -55,22 +55,46 @@ namespace brick
 
         view_data(Ref<BinaryView> view);
 
+        template <typename Scanner, typename UnaryPredicate>
+        void operator()(const Scanner& scanner, UnaryPredicate pred) const
+        {
+            for (const view_segment& segment : segments)
+            {
+                mem::region range { segment.data.get(), segment.length };
+
+                scanner(range, [&] (mem::pointer result)
+                {
+                    return pred(result.shift(range.start, segment.start).as<uint64_t>());
+                });
+            }
+        }
+
+        template <typename Scanner>
+        uint64_t scan(const Scanner& scanner) const
+        {
+            uint64_t result = 0;
+
+            (*this)(scanner, [&] (uint64_t addr) -> bool
+            {
+                result = addr;
+
+                return true;
+            });
+
+            return result;
+        }
+
         template <typename Scanner>
         std::vector<uint64_t> scan_all(const Scanner& scanner) const
         {
             std::vector<uint64_t> results;
 
-            for (const view_segment& segment : segments)
+            (*this)(scanner, [&results] (uint64_t addr) -> bool
             {
-                mem::region range { segment.data.get(), segment.length };
+                results.emplace_back(addr);
 
-                scanner(range, [&, range] (mem::pointer result) -> bool
-                {
-                    results.emplace_back(result.shift(range.start, segment.start).as<uint64_t>());
-
-                    return false;
-                });
-            }
+                return false;
+            });
 
             return results;
         }

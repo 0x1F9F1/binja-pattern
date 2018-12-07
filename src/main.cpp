@@ -20,6 +20,7 @@
 #include "BinaryNinja.h"
 #include "PatternScanner.h"
 #include "PatternLoader.h"
+#include "PatternMaker.h"
 
 #include <mem/platform-inl.h>
 
@@ -27,8 +28,30 @@ extern "C"
 {
     BINARYNINJAPLUGIN bool CorePluginInit()
     {
-        PluginCommand::Register("Scan for Pattern", "Scans for an array of bytes", &ScanForArrayOfBytes);
-        PluginCommand::Register("Load Pattern File", "Loads a file containing patterns", &LoadPatternFile);
+        PluginCommand::Register("Pattern\\Scan for Pattern", "Scans for an array of bytes", &ScanForArrayOfBytes);
+        PluginCommand::Register("Pattern\\Load Pattern File", "Loads a file containing patterns", &LoadPatternFile);
+
+        PluginCommand::RegisterForAddress("Pattern\\Create Signature", "Creates a signature", &GenerateSignature, [ ] (Ref<BinaryView> view, uint64_t addr) -> bool
+        {
+            Ref<Architecture> arch = view->GetDefaultArchitecture();
+
+            if (!arch)
+                return false;
+
+            std::string arch_name = arch->GetName();
+
+            if ((arch_name != "x86") && (arch_name != "x86_64"))
+            {
+                return false;
+            }
+
+            if (!view->IsOffsetExecutable(addr))
+            {
+                return false;
+            }
+
+            return true;
+        });
 
         BinjaLog(InfoLog, "Loaded binja-pattern");
 

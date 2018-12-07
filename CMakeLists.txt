@@ -40,6 +40,7 @@ add_library(${PROJECT_NAME} SHARED
     src/main.cpp
     src/PatternScanner.cpp
     src/PatternLoader.cpp
+    src/PatternMaker.cpp
     src/BinaryNinja.cpp
     include/PatternScanner.h
     include/PatternLoader.h
@@ -53,7 +54,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE vendor/binaryninja-api)
 
 target_link_libraries(${PROJECT_NAME}
-    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem)
+    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem Zydis Zycore)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11
