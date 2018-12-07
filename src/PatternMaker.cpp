@@ -82,7 +82,7 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
         len = insn.length;
 
-        byte current_masks[16];
+        mem::byte current_masks[16];
         std::memset(current_masks, 0xFF, len);
 
         auto& disp = insn.raw.disp;
