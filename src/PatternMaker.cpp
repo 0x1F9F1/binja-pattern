@@ -23,15 +23,7 @@
 #include <mem/utils.h>
 #include <mem/data_buffer.h>
 
-#if 0
-# include <capstone/capstone.h>
-# define USE_CAPSTONE
-#endif
-
-#if 1
-# include <Zydis/Zydis.h>
-# define USE_ZYDIS
-#endif
+#include <Zydis/Zydis.h>
 
 void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 {
@@ -50,40 +42,6 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
     std::string arch_name = arch->GetName();
 
-#if defined(USE_CAPSTONE)
-    cs_arch cap_arch;
-    cs_mode cap_mode;
-
-    if (arch_name == "x86")
-    {
-        cap_arch = CS_ARCH_X86;
-        cap_mode = CS_MODE_32;
-    }
-    else if (arch_name == "x86_64")
-    {
-        cap_arch = CS_ARCH_X86;
-        cap_mode = CS_MODE_64;
-    }
-    else
-    {
-        BinjaLog(ErrorLog, "Unknown architecture: {}", arch_name);
-
-        return;
-    }
-
-    csh handle;
-
-    if (cs_open(cap_arch, cap_mode, &handle) != CS_ERR_OK)
-    {
-        BinjaLog(ErrorLog, "Failed to init disassembler");
-
-        return;
-    }
-
-    cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
-#endif
-
-#if defined(USE_ZYDIS)
     ZydisDecoder decoder;
 
     if (arch_name == "x86")
@@ -101,8 +59,6 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         return;
     }
 
-#endif
-
     mem::byte_buffer buffer(arch->GetMaxInstructionLength());
 
     mem::byte_buffer bytes;
@@ -119,53 +75,16 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         if (len == 0)
             break;
 
-#if defined(USE_CAPSTONE)
-        cs_insn *insn;
-
-        size_t count = cs_disasm(handle, buffer.data(), len, current_addr, 1, &insn);
-
-        if (count == 0)
-            break;
-
-        len = insn->size;
-#endif
-
-#if defined(USE_ZYDIS)
         ZydisDecodedInstruction insn;
 
         if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&decoder, buffer.data(), len, &insn)))
             break;
 
         len = insn.length;
-#endif
 
         byte current_masks[16];
         std::memset(current_masks, 0xFF, len);
 
-#if defined(USE_CAPSTONE)
-        cs_x86_encoding& enc = insn->detail->x86.encoding;
-
-        if (enc.disp_offset != 0)
-        {
-            std::memset(current_masks + enc.disp_offset, 0x00, enc.disp_size);
-
-            BinjaLog(InfoLog, "Disp 0x{:X}, {}, {}", current_addr, enc.disp_offset, enc.disp_size);
-        }
-
-        if (enc.imm_offset != 0)
-        {
-            // if (enc.imm_size == address_size)
-            {
-                std::memset(current_masks + enc.imm_offset, 0x00, enc.imm_size);
-
-                BinjaLog(InfoLog, "Imm 0x{:X}, {}, {}", current_addr, enc.imm_offset, enc.imm_size);
-            }
-        }
-
-        cs_free(insn, count);
-#endif
-
-#if defined(USE_ZYDIS)
         auto& disp = insn.raw.disp;
 
         if (disp.size != 0)
@@ -186,7 +105,6 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
                 BinjaLog(InfoLog, "Imm{} 0x{:X}, {}, {}", i, current_addr, imm.offset, imm.size);
             }
         }
-#endif
 
         bytes.append(buffer.data(), len);
         masks.append(current_masks, len);
@@ -221,8 +139,4 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
         current_addr += len;
     }
-
-#if defined(USE_CAPSTONE)
-    cs_close(&handle);
-#endif
 }
