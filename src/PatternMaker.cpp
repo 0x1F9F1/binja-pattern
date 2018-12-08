@@ -25,6 +25,50 @@
 
 #include <Zydis/Zydis.h>
 
+#if defined(_WIN32)
+# define WIN32_LEAN_AND_MEAN
+# include <Windows.h>
+#endif
+
+bool CopyToClipboard(const std::string& text)
+{
+#if defined(_WIN32)
+    bool success = false;
+
+    if (OpenClipboard(NULL))
+    {
+        if (EmptyClipboard())
+        {
+            HGLOBAL hText = GlobalAlloc(GMEM_MOVEABLE, text.size() + 1);
+
+            if (hText)
+            {
+                void* pText = GlobalLock(hText);
+
+                if (pText)
+                {
+                    std::memcpy(pText, text.c_str(), text.size() + 1);
+                    GlobalUnlock(hText);
+                    success = SetClipboardData(CF_TEXT, hText) != NULL;
+                }
+                else
+                {
+                    GlobalFree(hText);
+                }
+            }
+        }
+
+        CloseClipboard();
+    }
+
+    return success;
+#else
+    (void) text;
+
+    return false;
+#endif
+}
+
 void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 {
     Ref<BasicBlock> block = view->GetRecentBasicBlockForAddress(addr);
@@ -127,7 +171,11 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
             if (!found)
             {
-                BinjaLog(InfoLog, "Generated Pattern: {}", pat.to_string());
+                std::string pat_string = pat.to_string();
+
+                CopyToClipboard(pat_string);
+
+                BinjaLog(InfoLog, "Generated Pattern: \"{}\"", pat_string);
 
                 break;
             }
