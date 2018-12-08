@@ -33,24 +33,19 @@ extern "C"
 
         PluginCommand::RegisterForAddress("Pattern\\Create Signature", "Creates a signature", &GenerateSignature, [ ] (Ref<BinaryView> view, uint64_t addr) -> bool
         {
-            Ref<Architecture> arch = view->GetDefaultArchitecture();
+            Ref<BasicBlock> block = view->GetRecentBasicBlockForAddress(addr);
 
-            if (!arch)
+            if (!block)
+            {
                 return false;
+            }
+
+            Ref<Function> func = block->GetFunction();
+            Ref<Architecture> arch = func->GetArchitecture();
 
             std::string arch_name = arch->GetName();
 
-            if ((arch_name != "x86") && (arch_name != "x86_64"))
-            {
-                return false;
-            }
-
-            if (!view->IsOffsetExecutable(addr))
-            {
-                return false;
-            }
-
-            return true;
+            return (arch_name == "x86") || (arch_name == "x86_64");
         });
 
         BinjaLog(InfoLog, "Loaded binja-pattern");

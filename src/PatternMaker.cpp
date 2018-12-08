@@ -46,7 +46,7 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
     if (arch_name == "x86")
     {
-        ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_32);
+        ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_COMPAT_32, ZYDIS_ADDRESS_WIDTH_32);
     }
     else if (arch_name == "x86_64")
     {
@@ -59,7 +59,8 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         return;
     }
 
-    mem::byte_buffer buffer(arch->GetMaxInstructionLength());
+    mem::byte_buffer insn_buffer(ZYDIS_MAX_INSTRUCTION_LENGTH);
+    mem::byte_buffer mask_buffer(ZYDIS_MAX_INSTRUCTION_LENGTH);
 
     mem::byte_buffer bytes;
     mem::byte_buffer masks;
@@ -70,28 +71,27 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
     while (true)
     {
-        size_t len = view->Read(buffer.data(), current_addr, buffer.size());
+        size_t len = view->Read(insn_buffer.data(), current_addr, insn_buffer.size());
 
         if (len == 0)
             break;
 
         ZydisDecodedInstruction insn;
 
-        if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&decoder, buffer.data(), len, &insn)))
+        if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&decoder, insn_buffer.data(), len, &insn)))
             break;
 
         len = insn.length;
 
-        mem::byte current_masks[16];
-        std::memset(current_masks, 0xFF, len);
+        std::memset(mask_buffer.data(), 0xFF, mask_buffer.size());
 
         auto& disp = insn.raw.disp;
 
         if (disp.size != 0)
         {
-            std::memset(current_masks + disp.offset, 0x00, (disp.size + 7) / 8);
+            std::memset(mask_buffer.data() + disp.offset, 0x00, (disp.size + 7) / 8);
 
-            // BinjaLog(InfoLog, "Disp 0x{:X}, {}, {}", current_addr, disp.offset, disp.size);
+            BinjaLog(DebugLog, "Disp 0x{:X}, {}, {}", current_addr, disp.offset, disp.size);
         }
 
         for (size_t i = 0; i < 2; ++i)
@@ -100,34 +100,37 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
             if (imm.size != 0)
             {
-                std::memset(current_masks + imm.offset, 0x00, (imm.size + 7) / 8);
+                std::memset(mask_buffer.data() + imm.offset, 0x00, (imm.size + 7) / 8);
 
-                // BinjaLog(InfoLog, "Imm{} 0x{:X}, {}, {}", i, current_addr, imm.offset, imm.size);
+                BinjaLog(DebugLog, "Imm{} 0x{:X}, {}, {}", i, current_addr, imm.offset, imm.size);
             }
         }
 
-        bytes.append(buffer.data(), len);
-        masks.append(current_masks, len);
+        bytes.append(insn_buffer.data(), len);
+        masks.append(mask_buffer.data(), len);
 
         mem::pattern pat(bytes.data(), masks.data(), bytes.size());
 
-        bool found = false;
-
-        scan_data(mem::default_scanner(pat), [&] (uint64_t result)
+        if (pat.size() >= 5)
         {
-            if (addr == result)
-                return false;
+            bool found = false;
 
-            found = true;
+            scan_data(mem::default_scanner(pat), [&] (uint64_t result)
+            {
+                if (addr == result)
+                    return false;
 
-            return true;
-        });
+                found = true;
 
-        if (!found)
-        {
-            BinjaLog(InfoLog, "Generated Pattern: {}", pat.to_string());
+                return true;
+            });
 
-            break;
+            if (!found)
+            {
+                BinjaLog(InfoLog, "Generated Pattern: {}", pat.to_string());
+
+                break;
+            }
         }
 
         if (pat.size() > 256)
