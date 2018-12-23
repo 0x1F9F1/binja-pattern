@@ -7,6 +7,8 @@ set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
+set(CMAKE_GENERATOR_PLATFORM x64)
+
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(binja_pattern CXX)
