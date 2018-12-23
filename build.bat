@@ -1,6 +1,6 @@
 @echo off
 
-call cmake.bat
+call prebuild.bat
 
 cd build
 cmake --build . --config Release --target install
