@@ -80,7 +80,6 @@ case sizeof(TYPE): \
     return true; \
 };
 
-                X(uint8_t)
                 X(uint16_t)
                 X(uint32_t)
                 X(uint64_t)
@@ -209,7 +208,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                     error += fmt::format(" @ 0x{:X}\n", result);
                 }
 
-                BinjaLog(InfoLog, "Differing Results: {}", error);
+                BinjaLog(InfoLog, "Differing Results: {}\n{}", name, error);
 
                 return true;
             }
@@ -235,6 +234,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
             Ref<Symbol> symbol = new Symbol(symbol_type, name, offset);
 
             view->DefineUserSymbol(symbol);
+            // view->DefineDataVariable(offset, Type::VoidType()->WithConfidence(0));
 
             return true;
         });

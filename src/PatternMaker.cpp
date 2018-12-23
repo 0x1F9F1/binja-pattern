@@ -118,12 +118,20 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         size_t len = view->Read(insn_buffer.data(), current_addr, insn_buffer.size());
 
         if (len == 0)
+        {
+            BinjaLog(ErrorLog, "Failed to read data : 0x{:X}", current_addr);
+
             break;
+        }
 
         ZydisDecodedInstruction insn;
 
         if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&decoder, insn_buffer.data(), len, &insn)))
+        {
+            BinjaLog(ErrorLog, "Failed to decode instruction @ 0x{:X}", current_addr);
+
             break;
+        }
 
         len = insn.length;
 

@@ -22,8 +22,6 @@
 #include "PatternLoader.h"
 #include "PatternMaker.h"
 
-#include <mem/platform-inl.h>
-
 extern "C"
 {
     BINARYNINJAPLUGIN bool CorePluginInit()
