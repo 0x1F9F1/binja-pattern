@@ -1,7 +1,6 @@
 #!/bin/sh
 
-./prebuild.sh
-
+mkdir build
 cd build
-cmake --build . --config Release --target install
+cmake -DCMAKE_BUILD_TYPE=Release ../ && cmake --build . --config Release --target install
 cd ..
