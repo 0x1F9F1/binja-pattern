@@ -32,7 +32,7 @@
 
 using json = nlohmann::json;
 
-const std::unordered_map<std::string, std::function<bool(BinaryView*, uint64_t&, const json&)>> POINTER_OPS =
+const std::unordered_map<std::string, bool(*)(BinaryView*, uint64_t&, const json&)> POINTER_OPS =
 {
     { "add", [ ] (BinaryView* view, uint64_t& address, const json& j) -> bool
         {

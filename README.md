@@ -1,4 +1,4 @@
 # Binja Pattern
 Author: **Brick**
 
-A plugin for Binary Ninja which scans for a pattern/array-of-bytes (e.g. `01 23 ? 67`).
+A Binary Ninja plugin to scan for and create patterns/array-of-bytes (e.g. `E8 ? ? ? ? 83 C4 ? 8D 84 24`)
