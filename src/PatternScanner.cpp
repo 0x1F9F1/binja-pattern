@@ -177,15 +177,7 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
     if (plength > 0)
     {
-        const mem::byte* pbytes = pattern.bytes();
-        const mem::byte* pmasks = pattern.masks();
-
-        report += fmt::format("Pattern: Length {}, \"{}\", \"{}\"\n",
-            plength,
-
-            mem::as_hex({ pbytes, plength }, true, true),
-            mem::as_hex({ pmasks, plength }, true, true)
-        );
+        report += fmt::format("Pattern: Length {}, \"{}\"\n", plength, pattern.to_string());
     }
 
     report += "\n";
