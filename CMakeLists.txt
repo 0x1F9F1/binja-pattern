@@ -9,6 +9,10 @@ cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(binja_pattern CXX)
 
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 if(WIN32)
     set(BINJA_DIR "C:\\Program Files\\Vector35\\BinaryNinja"
         CACHE PATH "Binary Ninja installation directory")
@@ -47,15 +51,14 @@ add_library(${PROJECT_NAME} SHARED
     include/PatternLoader.h
     include/BackgroundTaskThread.h
     include/BinaryNinja.h
-    include/ParallelFunctions.h
-    include/json.hpp)
+    include/ParallelFunctions.h)
 
-target_include_directories(${PROJECT_NAME}
+target_include_directories(${PROJECT_NAME} SYSTEM
     PRIVATE include
     PRIVATE vendor/binaryninja-api)
 
 target_link_libraries(${PROJECT_NAME}
-    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem Zydis Zycore)
+    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem yaml-cpp Zydis Zycore)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11

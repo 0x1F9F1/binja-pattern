@@ -23,6 +23,7 @@
 
 #include <thread>
 #include <type_traits>
+#include <exception>
 
 class BackgroundTaskThread
     : public BackgroundTask
@@ -50,7 +51,18 @@ public:
 
         thread_ = std::thread([task] (typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
         {
-            func(task.GetPtr(), std::move(args)...);
+            try
+            {
+                func(task.GetPtr(), std::move(args)...);
+            }
+            catch (const std::exception& ex)
+            {
+                BinjaLog(ErrorLog, "Exception in background task: {}", ex.what());
+            }
+            catch (...)
+            {
+                BinjaLog(ErrorLog, "Unknown Exception in background task");
+            }
 
             task->Finish();
         }, std::forward<Func>(func), std::forward<Args>(args)...);

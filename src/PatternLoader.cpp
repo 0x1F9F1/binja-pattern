@@ -18,38 +18,39 @@
 */
 
 #include "PatternLoader.h"
+#include "ParallelFunctions.h"
 #include "BackgroundTaskThread.h"
 
-#include <json.hpp>
 #include <fstream>
+#include <unordered_set>
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
 
-#include <unordered_set>
+#include <yaml-cpp/yaml.h>
 
-#include "ParallelFunctions.h"
+using stopwatch = std::chrono::steady_clock;
 
-using json = nlohmann::json;
-
-const std::unordered_map<std::string, bool(*)(BinaryView*, uint64_t&, const json&)> POINTER_OPS =
+const std::unordered_map<std::string, bool(*)(BinaryView*, uint64_t&, const YAML::Node&)> POINTER_OPS =
 {
-    { "add", [ ] (BinaryView* view, uint64_t& address, const json& j) -> bool
+    { "add", [ ] (BinaryView* view, uint64_t& address, const YAML::Node& n) -> bool
         {
-            address += j.at("value").get<size_t>();
+            address += n["value"].as<size_t>();
 
             return true;
         }
     },
-    { "sub", [ ] (BinaryView* view, uint64_t& address, const json& j) -> bool
+    { "sub", [ ] (BinaryView* view, uint64_t& address, const YAML::Node& n) -> bool
         {
-            address -= j.at("value").get<size_t>();
+            address -= n["value"].as<size_t>();
 
             return true;
         }
     },
-    { "rip", [ ] (BinaryView* view, uint64_t& address, const json& j) -> bool
+    { "rip", [ ] (BinaryView* view, uint64_t& address, const YAML::Node& n) -> bool
         {
+            auto value = n["value"].as<size_t>();
+
             int32_t offset = 0;
 
             if (view->Read(&offset, address, sizeof(offset)) != sizeof(offset))
@@ -57,13 +58,15 @@ const std::unordered_map<std::string, bool(*)(BinaryView*, uint64_t&, const json
                 return false;
             }
 
-            address += offset + j.at("value").get<size_t>();
+            address += offset + value;
 
             return true;
         }
     },
-    { "abs", [ ] (BinaryView* view, uint64_t& address, const json&) -> bool
+    { "abs", [ ] (BinaryView* view, uint64_t& address, const YAML::Node& n) -> bool
         {
+            (void) n;
+
             size_t address_size = view->GetAddressSize();
 
             switch (address_size)
@@ -94,32 +97,29 @@ case sizeof(TYPE): \
 
 void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string file_name)
 {
-    using stopwatch = std::chrono::steady_clock;
+    const auto total_start_time = stopwatch::now();
 
-    std::ifstream input_stream(file_name);
+    auto config = YAML::LoadFile(file_name);
 
-    if (!input_stream.good())
+    auto patterns = config["patterns"];
+
+    if (!patterns.IsSequence())
     {
-        BinjaLog(InfoLog, "Failed to open \"{}\"", file_name);
+        BinjaLog(ErrorLog, "File does not contain any patterns");
 
         return;
     }
 
     const brick::view_data data(view);
 
-    try
+    parallel_for_each(patterns.begin(), patterns.end(), [&] (const YAML::Node& n) -> bool
     {
-        const auto total_start_time = stopwatch::now();
-
-        const json config = json::parse(input_stream);
-        const json& patterns = config.at("patterns");
-
-        parallel_for_each(patterns.begin(), patterns.end(), [&] (const json& j) -> bool
+        try
         {
-            std::string name = j.at("name").get<std::string>();
-            std::string type = j.at("category").get<std::string>();
-            std::string desc = j.at("desc").get<std::string>();
-            std::string pattern_string = j.at("pattern").get<std::string>();
+            std::string name = n["name"].as<std::string>();
+            std::string type = n["category"].as<std::string>();
+            std::string desc = n["desc"].as<std::string>("");
+            std::string pattern_string = n["pattern"].as<std::string>();
 
             mem::pattern pattern(pattern_string.c_str());
 
@@ -142,49 +142,39 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
             }
 
             {
-                const auto find = j.find("count");
+                const auto count = n["count"].as<size_t>(1);
 
-                if (find != j.end())
+                if (count != scan_results.size())
                 {
-                    const auto count = find->get<size_t>();
+                    BinjaLog(InfoLog, "Invalid Count: (Got {}, Expected {})", scan_results.size(), count);
 
-                    if (count != scan_results.size())
-                    {
-                        BinjaLog(InfoLog, "Invalid Count: (Got {}, Expected {})", scan_results.size(), count);
-
-                        return true;
-                    }
+                    return true;
                 }
             }
 
             {
-                const auto find = j.find("index");
+                const auto index = n["index"].as<size_t>(0);
 
-                if (find != j.end())
+                if (index >= scan_results.size())
                 {
-                    const auto index = find->get<size_t>();
+                    BinjaLog(InfoLog, "Invalid Index: {}, {} Results", index, scan_results.size());
 
-                    if (index >= scan_results.size())
-                    {
-                        BinjaLog(InfoLog, "Invalid Index: {}, {} Results", index, scan_results.size());
-
-                        return true;
-                    }
-
-                    scan_results = { scan_results.at(index) };
+                    return true;
                 }
+
+                scan_results = { scan_results.at(index) };
             }
 
             {
-                const auto find = j.find("ops");
+                const auto ops = n["ops"];
 
-                if (find != j.end())
+                if (ops && ops.IsSequence())
                 {
                     for (auto& result : scan_results)
                     {
-                        for (const auto& op : *find)
+                        for (const auto& op : ops)
                         {
-                            std::string op_type = op.at("type").get<std::string>();
+                            std::string op_type = op["type"].as<std::string>();
 
                             if (!POINTER_OPS.at(op_type)(view, result, op))
                             {
@@ -236,26 +226,31 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
             view->DefineUserSymbol(symbol);
             // view->DefineDataVariable(offset, Type::VoidType()->WithConfidence(0));
 
-            return true;
-        });
+        }
+        catch (const std::exception& ex)
+        {
+            BinjaLog(InfoLog, "Error parsing pattern file \"{}\": {}", file_name, ex.what());
+        }
+        catch (...)
+        {
+            BinjaLog(InfoLog, "Error parsing pattern file \"{}\"", file_name);
+        }
 
-        const auto total_end_time = stopwatch::now();
+        return true;
+    });
 
-        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
+    const auto total_end_time = stopwatch::now();
 
-        BinjaLog(InfoLog, "Found {} patterns in {} ms ({} ms avg)\n", patterns.size(), elapsed_ms, (double) elapsed_ms / (double) patterns.size());
-    }
-    catch (const std::exception&)
-    {
-        BinjaLog(InfoLog, "Error parsing pattern file \"{}\"", file_name);
-    }
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
+
+    BinjaLog(InfoLog, "Found {} patterns in {} ms ({} ms avg)\n", patterns.size(), elapsed_ms, (double) elapsed_ms / (double) patterns.size());
 }
 
 void LoadPatternFile(Ref<BinaryView> view)
 {
     std::string input_file;
 
-    if (BinaryNinja::GetOpenFileNameInput(input_file, "Select Pattern File", "*.json"))
+    if (BinaryNinja::GetOpenFileNameInput(input_file, "Select Pattern File", "*.yaml;*.*"))
     {
         Ref<BackgroundTaskThread> task = new BackgroundTaskThread("Loading Patterns");
 

@@ -10,3 +10,6 @@
 [submodule "vendor/zydis"]
 	path = vendor/zydis
 	url = https://github.com/zyantific/zydis.git
+[submodule "vendor/yaml-cpp"]
+	path = vendor/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
