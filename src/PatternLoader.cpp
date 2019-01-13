@@ -897,7 +897,7 @@ void LoadPatternFile(Ref<BinaryView> view)
 {
     std::string input_file;
 
-    if (BinaryNinja::GetOpenFileNameInput(input_file, "Select Pattern File", "*.yaml"))
+    if (BinaryNinja::GetOpenFileNameInput(input_file, "Select Pattern File", "*.yml;*.yaml"))
     {
         Ref<BackgroundTaskThread> task = new BackgroundTaskThread("Loading Patterns");
 
