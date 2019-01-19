@@ -86,7 +86,16 @@ namespace mem
             opcode op {op_invalid};
             size_t operand_count {0};
             std::array<size_t, 1> operands {};
+
+            token(opcode op, size_t operand_count = 0, const std::initializer_list<size_t>& operands = {});
         };
+
+        token::token(opcode op_, size_t operand_count_, const std::initializer_list<size_t>& operands_)
+            : op(op_)
+            , operand_count(operand_count_)
+        {
+            std::copy(operands_.begin(), operands_.end(), operands.begin());
+        }
 
         size_t get_precedence(opcode op)
         {
