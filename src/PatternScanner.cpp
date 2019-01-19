@@ -21,7 +21,6 @@
 
 #include <mem/pattern.h>
 #include <mem/utils.h>
-#include <mem/platform.h>
 
 constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;

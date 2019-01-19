@@ -1,11 +1,11 @@
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(WIN32)
     set(CMAKE_GENERATOR_PLATFORM x64)
 endif()
-
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(binja_pattern CXX)
 
