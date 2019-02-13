@@ -224,7 +224,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
     }
     else
     {
-        std::string pattern_bytes = mem::unescape(pattern_string.c_str(), pattern_string.size());
+        std::vector<mem::byte> pattern_bytes = mem::unescape(pattern_string.c_str(), pattern_string.size());
 
         if (pattern_bytes.size() != mask_string.size())
         {
@@ -233,7 +233,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
             return;
         }
 
-        mem::pattern pattern(pattern_bytes.c_str(), mask_string.c_str());
+        mem::pattern pattern(pattern_bytes.data(), mask_string.c_str());
 
         ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);   
     }
