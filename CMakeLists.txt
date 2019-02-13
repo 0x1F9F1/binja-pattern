@@ -6,7 +6,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 project(binja_pattern CXX)
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-    message(FATAL_ERROR "Binary Ninja is 64-bit only")
+    if (MSVC)
+        message(FATAL_ERROR "Binary Ninja is 64-bot only (try -G \"${CMAKE_GENERATOR} Win64\")")
+    else()
+        message(FATAL_ERROR "Binary Ninja is 64-bit only")
+    endif()
 endif()
 
 if(MSVC)
