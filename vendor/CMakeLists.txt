@@ -1,4 +1,8 @@
 add_subdirectory(binaryninja-api)
+
+target_include_directories(binaryninjaapi PUBLIC
+    binaryninja-api)
+
 add_subdirectory(fmt)
 add_subdirectory(mem)
 

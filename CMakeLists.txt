@@ -7,7 +7,7 @@ project(binja_pattern CXX)
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     if (MSVC)
-        message(FATAL_ERROR "Binary Ninja is 64-bot only (try -G \"${CMAKE_GENERATOR} Win64\")")
+        message(FATAL_ERROR "Binary Ninja is 64-bit only (try -G \"${CMAKE_GENERATOR} Win64\")")
     else()
         message(FATAL_ERROR "Binary Ninja is 64-bit only")
     endif()
@@ -57,9 +57,8 @@ add_library(${PROJECT_NAME} SHARED
     include/BinaryNinja.h
     include/ParallelFunctions.h)
 
-target_include_directories(${PROJECT_NAME} SYSTEM
-    PRIVATE include
-    PRIVATE vendor/binaryninja-api)
+target_include_directories(${PROJECT_NAME}
+    PRIVATE include)
 
 target_link_libraries(${PROJECT_NAME}
     ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem yaml-cpp Zydis Zycore)
