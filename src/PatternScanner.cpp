@@ -169,49 +169,38 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
     std::sort(results.begin(), results.end());
 
-    report += fmt::format("Found {} results for \"{}\" in {} ms (actual {} ms):\n", results.size(), pattern_string, elapsed_ms, total_elapsed_ms);
-    report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n", total_size, (total_size / 1073741824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
+    report += fmt::format("Found {} results for `{}` in {} ms (actual {} ms):\n\n", results.size(), pattern_string, elapsed_ms, total_elapsed_ms);
+    // report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n\n", total_size, (total_size / 1073741824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
 
     const size_t plength = pattern.size();
 
     if (plength > 0)
     {
-        report += fmt::format("Pattern: Length {}, \"{}\"\n", plength, pattern.to_string());
+        report += fmt::format("Pattern: Length {}, \"{}\"\n\n", plength, pattern.to_string());
     }
 
-    report += "\n";
+    report += "\n\n";
 
     for (uint64_t result : results)
     {
-        report += fmt::format("0x{:X}", result);
+        report += fmt::format("* [0x{0:X}](binaryninja://?expr=0x{0:X})\n", result);
 
         std::vector<Ref<BasicBlock>> blocks = view->GetBasicBlocksForAddress(result);
 
         if (!blocks.empty())
         {
-            report += " (";
-
             for (size_t i = 0; i < blocks.size(); ++i)
             {
                 Ref<BasicBlock> block = blocks[i];
 
-                if (i)
-                {
-                    report += ", ";
-                }
-
                 std::string instr_text = GetInstructionContaningAddress(block, result);
 
-                report += fmt::format("{}: \"{}\"", block->GetFunction()->GetSymbol()->GetFullName(), instr_text);
+                report += fmt::format("    * [{0}](binaryninja://?expr={0}) : `{1}`\n", block->GetFunction()->GetSymbol()->GetFullName(), instr_text);
             }
-
-            report += ")";
         }
-
-        report += "\n";
     }
 
-    BinaryNinja::ShowPlainTextReport("Scan Results", report);
+    view->ShowMarkdownReport("Scan Results", report, "");
 }
 
 void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string, std::string mask_string)
@@ -235,7 +224,7 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
         mem::pattern pattern(pattern_bytes.data(), mask_string.c_str());
 
-        ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);   
+        ScanForArrayOfBytesInternal(task, view, pattern, pattern_string + ", " + mask_string);
     }
 }
 
