@@ -5,43 +5,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 project(binja_pattern CXX)
 
-if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-    if (MSVC)
-        message(FATAL_ERROR "Binary Ninja is 64-bit only (try -G \"${CMAKE_GENERATOR} Win64\")")
-    else()
-        message(FATAL_ERROR "Binary Ninja is 64-bit only")
-    endif()
-endif()
-
 if(MSVC)
     add_compile_options(/MP)
 endif()
-
-if(WIN32)
-    set(BINJA_DIR "C:\\Program Files\\Vector35\\BinaryNinja"
-        CACHE PATH "Binary Ninja installation directory")
-    set(BINJA_BIN_DIR "${BINJA_DIR}")
-    set(BINJA_PLUGINS_DIR "$ENV{APPDATA}/Binary Ninja/plugins"
-        CACHE PATH "Binary Ninja user plugins directory")
-elseif(APPLE)
-    set(BINJA_DIR "/Applications/Binary Ninja.app"
-        CACHE PATH "Binary Ninja installation directory")
-    set(BINJA_BIN_DIR "${BINJA_DIR}/Contents/MacOS")
-    set(BINJA_PLUGINS_DIR "$ENV{HOME}/Library/Application Support/Binary Ninja/plugins"
-        CACHE PATH "Binary Ninja user plugins directory")
-else()
-    set(BINJA_DIR "$ENV{HOME}/binaryninja"
-        CACHE PATH "Binary Ninja installation directory")
-    set(BINJA_BIN_DIR "${BINJA_DIR}")
-    set(BINJA_PLUGINS_DIR "$ENV{HOME}/.binaryninja/plugins"
-        CACHE PATH "Binary Ninja user plugins directory")
-endif()
-
-find_library(BINJA_CORE_LIBRARY
-    NAMES binaryninjacore libbinaryninjacore.so.1
-    PATHS ${BINJA_BIN_DIR})
-
-message("Binary Ninja Core at " ${BINJA_CORE_LIBRARY})
 
 add_subdirectory(vendor EXCLUDE_FROM_ALL)
 
@@ -61,7 +27,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE include)
 
 target_link_libraries(${PROJECT_NAME}
-    ${BINJA_CORE_LIBRARY} binaryninjaapi fmt mem yaml-cpp Zydis Zycore)
+    binaryninjaapi fmt mem yaml-cpp Zydis)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 11
@@ -71,13 +37,4 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin
 )
 
-if(WIN32)
-    install(TARGETS ${PROJECT_NAME} RUNTIME
-        DESTINATION ${BINJA_PLUGINS_DIR})
-
-    install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}>
-        DESTINATION ${BINJA_PLUGINS_DIR} OPTIONAL)
-else()
-    install(TARGETS ${PROJECT_NAME} LIBRARY
-        DESTINATION ${BINJA_PLUGINS_DIR})
-endif()
+binja_install_plugin(${PROJECT_NAME})
