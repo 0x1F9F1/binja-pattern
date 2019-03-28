@@ -82,7 +82,6 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
     Ref<Function> func = block->GetFunction();
     Ref<Architecture> arch = func->GetArchitecture();
-    size_t address_size = arch->GetAddressSize();
 
     std::string arch_name = arch->GetName();
 

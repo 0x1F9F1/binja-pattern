@@ -24,7 +24,6 @@
 
 constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
-constexpr const size_t PARTITION_SIZE = 1024 * 1024 * 64;
 
 #include "BackgroundTaskThread.h"
 #include "ParallelFunctions.h"
