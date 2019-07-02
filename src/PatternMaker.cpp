@@ -19,15 +19,15 @@
 
 #include "PatternScanner.h"
 
+#include <mem/data_buffer.h>
 #include <mem/pattern.h>
 #include <mem/utils.h>
-#include <mem/data_buffer.h>
 
 #include <Zydis/Zydis.h>
 
 #if defined(_WIN32)
-# define WIN32_LEAN_AND_MEAN
-# include <Windows.h>
+#    define WIN32_LEAN_AND_MEAN
+#    include <Windows.h>
 #endif
 
 bool CopyToClipboard(const std::string& text)
@@ -69,6 +69,56 @@ bool CopyToClipboard(const std::string& text)
 #endif
 }
 
+struct InstructionMaskDecoder
+{
+    virtual ~InstructionMaskDecoder() = default;
+    virtual size_t Decode(uint64_t address, const uint8_t* data, size_t length, uint8_t* masks) = 0;
+};
+
+struct X86MaskDecoder : InstructionMaskDecoder
+{
+    ZydisDecoder Decoder;
+
+    X86MaskDecoder(size_t address_width)
+    {
+        switch (address_width)
+        {
+            case 4: ZydisDecoderInit(&Decoder, ZYDIS_MACHINE_MODE_LONG_COMPAT_32, ZYDIS_ADDRESS_WIDTH_32); break;
+            case 8: ZydisDecoderInit(&Decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64); break;
+            default: throw std::runtime_error("Invalid x86 Address Width");
+        }
+    }
+
+    size_t Decode(uint64_t address, const uint8_t* data, size_t length, uint8_t* masks) override
+    {
+        ZydisDecodedInstruction insn;
+
+        if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&Decoder, data, length, &insn)))
+        {
+            return 0;
+        }
+
+        auto& disp = insn.raw.disp;
+
+        if (disp.size != 0)
+        {
+            std::memset(masks + disp.offset, 0x00, (disp.size + 7) / 8);
+        }
+
+        for (size_t i = 0; i < 2; ++i)
+        {
+            auto& imm = insn.raw.imm[i];
+
+            if (imm.size != 0)
+            {
+                std::memset(masks + imm.offset, 0x00, (imm.size + 7) / 8);
+            }
+        }
+
+        return insn.length;
+    }
+};
+
 void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 {
     Ref<BasicBlock> block = view->GetRecentBasicBlockForAddress(addr);
@@ -85,15 +135,11 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
     std::string arch_name = arch->GetName();
 
-    ZydisDecoder decoder;
+    std::unique_ptr<InstructionMaskDecoder> decoder;
 
-    if (arch_name == "x86")
+    if (arch_name == "x86" || arch_name == "x86_64")
     {
-        ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_COMPAT_32, ZYDIS_ADDRESS_WIDTH_32);
-    }
-    else if (arch_name == "x86_64")
-    {
-        ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64);
+        decoder = std::make_unique<X86MaskDecoder>(arch->GetAddressSize());
     }
     else
     {
@@ -102,8 +148,8 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         return;
     }
 
-    mem::byte_buffer insn_buffer(ZYDIS_MAX_INSTRUCTION_LENGTH);
-    mem::byte_buffer mask_buffer(ZYDIS_MAX_INSTRUCTION_LENGTH);
+    mem::byte_buffer insn_buffer(arch->GetMaxInstructionLength());
+    mem::byte_buffer mask_buffer(arch->GetMaxInstructionLength());
 
     mem::byte_buffer bytes;
     mem::byte_buffer masks;
@@ -123,38 +169,15 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
             break;
         }
 
-        ZydisDecodedInstruction insn;
+        std::memset(mask_buffer.data(), 0xFF, len);
 
-        if (ZYAN_FAILED(ZydisDecoderDecodeBuffer(&decoder, insn_buffer.data(), len, &insn)))
+        len = decoder->Decode(current_addr, insn_buffer.data(), len, mask_buffer.data());
+
+        if (len == 0)
         {
             BinjaLog(ErrorLog, "Failed to decode instruction @ 0x{:X}", current_addr);
 
             break;
-        }
-
-        len = insn.length;
-
-        std::memset(mask_buffer.data(), 0xFF, mask_buffer.size());
-
-        auto& disp = insn.raw.disp;
-
-        if (disp.size != 0)
-        {
-            std::memset(mask_buffer.data() + disp.offset, 0x00, (disp.size + 7) / 8);
-
-            BinjaLog(DebugLog, "Disp 0x{:X}, {}, {}", current_addr, disp.offset, disp.size);
-        }
-
-        for (size_t i = 0; i < 2; ++i)
-        {
-            auto& imm = insn.raw.imm[i];
-
-            if (imm.size != 0)
-            {
-                std::memset(mask_buffer.data() + imm.offset, 0x00, (imm.size + 7) / 8);
-
-                BinjaLog(DebugLog, "Imm{} 0x{:X}, {}, {}", i, current_addr, imm.offset, imm.size);
-            }
         }
 
         bytes.append(insn_buffer.data(), len);
@@ -166,8 +189,7 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
         {
             bool found = false;
 
-            scan_data(mem::default_scanner(pat), [&] (uint64_t result)
-            {
+            scan_data(mem::default_scanner(pat), [&](uint64_t result) {
                 if (addr == result)
                     return false;
 
