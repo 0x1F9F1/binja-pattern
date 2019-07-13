@@ -1,3 +1,15 @@
+if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/binaryninja-api")
+    find_package(Git)
+
+    if(NOT GIT_FOUND)
+        message(FATAL_ERROR "Git not found")
+    endif()
+
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} clone "https://github.com/Vector35/binaryninja-api.git"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}")
+endif()
+
 add_subdirectory(binaryninja-api)
 
 add_subdirectory(fmt)

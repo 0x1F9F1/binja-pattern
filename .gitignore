@@ -19,3 +19,5 @@ bld/
 
 .vs/
 .vscode/
+
+vendor/binaryninja-api
