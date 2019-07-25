@@ -243,3 +243,43 @@ void ScanForArrayOfBytes(Ref<BinaryView> view)
         task->Run(ScanForArrayOfBytesTask, view, pattern_string, mask_string);
     }
 }
+
+extern "C"
+{
+    struct BinaryPattern
+    {
+        mem::pattern Pattern {};
+        mem::default_scanner Scanner {};
+    };
+
+    BINARYNINJAPLUGIN BinaryPattern* BinaryPattern_Parse(const char* pattern)
+    {
+        BinaryPattern* result = new BinaryPattern();
+
+        result->Pattern = mem::pattern(pattern);
+        result->Scanner = mem::default_scanner(result->Pattern);
+
+        return result;
+    }
+
+    BINARYNINJAPLUGIN void BinaryPattern_Free(BinaryPattern* pattern)
+    {
+        delete pattern;
+    }
+
+    BINARYNINJAPLUGIN size_t BinjaPattern_Scan(
+        BinaryPattern* pattern, const uint8_t* data, size_t length, size_t* values, size_t limit)
+    {
+        if (limit == 0)
+            return 0;
+
+        size_t total = 0;
+
+        pattern->Scanner({data, length}, [data, values, limit, &total](mem::pointer p) {
+            values[total++] = static_cast<size_t>(p - data);
+            return total == limit;
+        });
+
+        return total;
+    }
+}

@@ -17,7 +17,7 @@
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "PatternScanner.h"
+#include "PatternMaker.h"
 
 #include <mem/data_buffer.h>
 #include <mem/pattern.h>

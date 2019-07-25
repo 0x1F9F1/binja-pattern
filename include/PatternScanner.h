@@ -22,3 +22,14 @@
 #include "BinaryNinja.h"
 
 void ScanForArrayOfBytes(Ref<BinaryView> view);
+
+extern "C"
+{
+    struct BinaryPattern;
+
+    BINARYNINJAPLUGIN BinaryPattern* BinaryPattern_Parse(const char* pattern);
+    BINARYNINJAPLUGIN void BinaryPattern_Free(BinaryPattern* pattern);
+
+    BINARYNINJAPLUGIN size_t BinjaPattern_Scan(
+        BinaryPattern* pattern, const uint8_t* data, size_t length, size_t* values, size_t limit);
+}
