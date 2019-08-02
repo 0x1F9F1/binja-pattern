@@ -19,13 +19,13 @@ _BinjaPattern_Scan.argtypes = [POINTER(_BinaryPattern), POINTER(c_ubyte), c_size
 _BinjaPattern_Scan.restype = c_size_t
 
 class BinaryPattern:
-    def __init__(self, pattern: str):
+    def __init__(self, pattern):
         self.handle = _BinaryPattern_Parse(create_string_buffer(pattern.encode('ascii')))
 
     def __del__(self):
         _BinaryPattern_Free(self.handle)
 
-    def find(self, data: bytes):
+    def find(self, data):
         result = c_size_t()
 
         if _BinjaPattern_Scan(self.handle, cast(data, POINTER(c_ubyte)), c_size_t(len(data)), cast(addressof(result), POINTER(c_size_t)), c_size_t(1)):
