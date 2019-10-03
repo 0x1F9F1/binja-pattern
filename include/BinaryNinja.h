@@ -43,7 +43,7 @@ namespace brick
     {
         uint64_t start;
         uint64_t length;
-        std::unique_ptr<uint8_t[ ]> data;
+        std::unique_ptr<uint8_t[]> data;
 
         view_segment(Ref<BinaryView> view, uint64_t start, uint64_t length);
     };
@@ -60,12 +60,10 @@ namespace brick
         {
             for (const view_segment& segment : segments)
             {
-                mem::region range { segment.data.get(), segment.length };
+                mem::region range {segment.data.get(), segment.length};
 
-                scanner(range, [&] (mem::pointer result)
-                {
-                    return pred(result.shift(range.start, segment.start).as<uint64_t>());
-                });
+                scanner(range,
+                    [&](mem::pointer result) { return pred(result.shift(range.start, segment.start).as<uint64_t>()); });
             }
         }
 
@@ -74,8 +72,7 @@ namespace brick
         {
             uint64_t result = 0;
 
-            (*this)(scanner, [&] (uint64_t addr) -> bool
-            {
+            (*this)(scanner, [&](uint64_t addr) -> bool {
                 result = addr;
 
                 return true;
@@ -89,8 +86,7 @@ namespace brick
         {
             std::vector<uint64_t> results;
 
-            (*this)(scanner, [&results] (uint64_t addr) -> bool
-            {
+            (*this)(scanner, [&results](uint64_t addr) -> bool {
                 results.emplace_back(addr);
 
                 return false;
@@ -99,4 +95,4 @@ namespace brick
             return results;
         }
     };
-}
+} // namespace brick

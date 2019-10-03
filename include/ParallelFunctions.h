@@ -21,9 +21,9 @@
 
 #include <cstdint>
 
-#include <thread>
-#include <mutex>
 #include <atomic>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 template <typename UnaryFunction, typename... Args>
@@ -73,8 +73,7 @@ inline void parallel_for_each(ForwardIt first, ForwardIt last, const UnaryPredic
 {
     std::mutex mutex;
 
-    return parallel_invoke_n(parallel_get_thread_count(), [&] (size_t /*thread_index*/)
-    {
+    return parallel_invoke_n(parallel_get_thread_count(), [&](size_t /*thread_index*/) {
         while (true)
         {
             std::unique_lock<std::mutex> guard(mutex);
@@ -111,23 +110,22 @@ inline void parallel_partition(size_t total, size_t partition, size_t overlap, c
     std::atomic_size_t current {0};
 
     return parallel_invoke_n(std::min<size_t>(parallel_get_thread_count(), (total + partition - 1) / partition),
-        [&, total, partition, overlap] (size_t /*thread_index*/)
-    {
-        while (true)
-        {
-            const size_t sub_current = current.fetch_add(partition, std::memory_order_relaxed);
-
-            if (sub_current < total)
+        [&, total, partition, overlap](size_t /*thread_index*/) {
+            while (true)
             {
-                if (!func(sub_current, std::min<size_t>(partition + overlap, total - sub_current)))
+                const size_t sub_current = current.fetch_add(partition, std::memory_order_relaxed);
+
+                if (sub_current < total)
+                {
+                    if (!func(sub_current, std::min<size_t>(partition + overlap, total - sub_current)))
+                    {
+                        break;
+                    }
+                }
+                else
                 {
                     break;
                 }
             }
-            else
-            {
-                break;
-            }
-        }
-    });
+        });
 }

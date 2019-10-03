@@ -18,9 +18,9 @@
 */
 
 #include "BinaryNinja.h"
-#include "PatternScanner.h"
 #include "PatternLoader.h"
 #include "PatternMaker.h"
+#include "PatternScanner.h"
 
 extern "C"
 {
@@ -29,22 +29,22 @@ extern "C"
         PluginCommand::Register("Pattern\\Scan for Pattern", "Scans for an array of bytes", &ScanForArrayOfBytes);
         PluginCommand::Register("Pattern\\Load Pattern File", "Loads a file containing patterns", &LoadPatternFile);
 
-        PluginCommand::RegisterForAddress("Pattern\\Create Signature", "Creates a signature", &GenerateSignature, [ ] (Ref<BinaryView> view, uint64_t addr) -> bool
-        {
-            Ref<BasicBlock> block = view->GetRecentBasicBlockForAddress(addr);
+        PluginCommand::RegisterForAddress("Pattern\\Create Signature", "Creates a signature", &GenerateSignature,
+            [](Ref<BinaryView> view, uint64_t addr) -> bool {
+                Ref<BasicBlock> block = view->GetRecentBasicBlockForAddress(addr);
 
-            if (!block)
-            {
-                return false;
-            }
+                if (!block)
+                {
+                    return false;
+                }
 
-            Ref<Function> func = block->GetFunction();
-            Ref<Architecture> arch = func->GetArchitecture();
+                Ref<Function> func = block->GetFunction();
+                Ref<Architecture> arch = func->GetArchitecture();
 
-            std::string arch_name = arch->GetName();
+                std::string arch_name = arch->GetName();
 
-            return (arch_name == "x86") || (arch_name == "x86_64");
-        });
+                return (arch_name == "x86") || (arch_name == "x86_64");
+            });
 
         BinjaLog(InfoLog, "Loaded binja-pattern");
 

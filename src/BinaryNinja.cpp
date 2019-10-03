@@ -18,7 +18,6 @@
 */
 
 #include "BinaryNinja.h"
-#include "ParallelFunctions.h"
 
 namespace brick
 {
@@ -52,5 +51,4 @@ namespace brick
             segments.emplace_back(view, view->GetStart(), view->GetLength());
         }
     }
-}
-
+} // namespace brick

@@ -26,10 +26,9 @@ constexpr const size_t SCAN_RUNS = 1;
 constexpr const size_t MAX_SCAN_RESULTS = 1000;
 
 #include "BackgroundTaskThread.h"
-#include "ParallelFunctions.h"
 
-#include <mutex>
 #include <atomic>
+#include <mutex>
 
 #include <chrono>
 
@@ -81,7 +80,8 @@ std::string GetInstructionContaningAddress(Ref<BasicBlock> block, uint64_t addre
     return "";
 }
 
-void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view, const mem::pattern& pattern, const std::string& pattern_string)
+void ScanForArrayOfBytesInternal(
+    Ref<BackgroundTask> task, Ref<BinaryView> view, const mem::pattern& pattern, const std::string& pattern_string)
 {
     using stopwatch = std::chrono::steady_clock;
 
@@ -102,7 +102,7 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
     const auto total_start_time = stopwatch::now();
 
-    brick::view_data view_data (view);
+    brick::view_data view_data(view);
 
     for (size_t i = 0; i < SCAN_RUNS; ++i)
     {
@@ -150,7 +150,8 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
     const auto total_end_time = stopwatch::now();
 
-    int64_t total_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
+    int64_t total_elapsed_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
 
     if (task->IsCancelled())
     {
@@ -168,8 +169,10 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
     std::sort(results.begin(), results.end());
 
-    report += fmt::format("Found {} results for `{}` in {} ms (actual {} ms):\n\n", results.size(), pattern_string, elapsed_ms, total_elapsed_ms);
-    // report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n\n", total_size, (total_size / 1073741824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
+    report += fmt::format("Found {} results for `{}` in {} ms (actual {} ms):\n\n", results.size(), pattern_string,
+        elapsed_ms, total_elapsed_ms);
+    // report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n\n", total_size, (total_size
+    // / 1073741824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
 
     const size_t plength = pattern.size();
 
@@ -194,7 +197,8 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
 
                 std::string instr_text = GetInstructionContaningAddress(block, result);
 
-                report += fmt::format("    * [{0}](binaryninja://?expr={0}) : `{1}`\n", block->GetFunction()->GetSymbol()->GetFullName(), instr_text);
+                report += fmt::format("    * [{0}](binaryninja://?expr={0}) : `{1}`\n",
+                    block->GetFunction()->GetSymbol()->GetFullName(), instr_text);
             }
         }
     }
@@ -202,7 +206,8 @@ void ScanForArrayOfBytesInternal(Ref<BackgroundTask> task, Ref<BinaryView> view,
     view->ShowMarkdownReport("Scan Results", report, "");
 }
 
-void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string, std::string mask_string)
+void ScanForArrayOfBytesTask(
+    Ref<BackgroundTask> task, Ref<BinaryView> view, std::string pattern_string, std::string mask_string)
 {
     if (mask_string.empty())
     {
@@ -216,7 +221,8 @@ void ScanForArrayOfBytesTask(Ref<BackgroundTask> task, Ref<BinaryView> view, std
 
         if (pattern_bytes.size() != mask_string.size())
         {
-            BinjaLog(ErrorLog, "Pattern/Mask Length Mismatch ({} != {} for {}, {})", pattern_bytes.size(), mask_string.size(), pattern_string, mask_string);
+            BinjaLog(ErrorLog, "Pattern/Mask Length Mismatch ({} != {} for {}, {})", pattern_bytes.size(),
+                mask_string.size(), pattern_string, mask_string);
 
             return;
         }
@@ -238,7 +244,8 @@ void ScanForArrayOfBytes(Ref<BinaryView> view)
     {
         std::string pattern_string = fields[0].stringResult, mask_string = fields[1].stringResult;
 
-        Ref<BackgroundTaskThread> task = new BackgroundTaskThread(fmt::format("Scanning for pattern: \"{}\"", pattern_string));
+        Ref<BackgroundTaskThread> task =
+            new BackgroundTaskThread(fmt::format("Scanning for pattern: \"{}\"", pattern_string));
 
         task->Run(ScanForArrayOfBytesTask, view, pattern_string, mask_string);
     }

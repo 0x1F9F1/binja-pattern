@@ -18,7 +18,6 @@
 */
 
 #include "PatternLoader.h"
-#include "ParallelFunctions.h"
 #include "BackgroundTaskThread.h"
 
 #include <fstream>
@@ -79,7 +78,8 @@ namespace mem
         bool compile_infix(const char* string, std::vector<size_t>& code);
         bool compile_postfix(const char* string, std::vector<size_t>& code);
 
-        bool execute(const std::vector<size_t>& input, size_t* stack, size_t stack_size, size_t& sp_out, const environment& env);
+        bool execute(
+            const std::vector<size_t>& input, size_t* stack, size_t stack_size, size_t& sp_out, const environment& env);
 
         struct token
         {
@@ -101,26 +101,22 @@ namespace mem
         {
             switch (op)
             {
-                case op_mul: case op_div: case op_mod:
-                    return 6;
+                case op_mul:
+                case op_div:
+                case op_mod: return 6;
 
-                case op_add: case op_sub:
-                    return 5;
+                case op_add:
+                case op_sub: return 5;
 
-                case op_and:
-                    return 4;
+                case op_and: return 4;
 
-                case op_xor:
-                    return 3;
+                case op_xor: return 3;
 
-                case op_or:
-                    return 2;
+                case op_or: return 2;
 
-                case op_paren:
-                    return 0;
+                case op_paren: return 0;
 
-                default:
-                    return 1;
+                default: return 1;
             }
         }
 
@@ -166,7 +162,8 @@ namespace mem
         {
             while (!pending.empty())
             {
-                token current = pending.top(); pending.pop();
+                token current = pending.top();
+                pending.pop();
 
                 if (current.op == op_paren)
                 {
@@ -191,20 +188,55 @@ namespace mem
             {
                 int current = input.peek();
 
-                if (current == ' ') { input.pop(); }
-                else if (current == '+') { input.pop(); push_token(code, pending, { op_add }); }
-                else if (current == '-') { input.pop(); push_token(code, pending, { op_sub }); }
-                else if (current == '*') { input.pop(); push_token(code, pending, { op_mul }); }
-                else if (current == '/') { input.pop(); push_token(code, pending, { op_div }); }
-                else if (current == '%') { input.pop(); push_token(code, pending, { op_mod }); }
-                else if (current == '&') { input.pop(); push_token(code, pending, { op_and }); }
-                else if (current == '|') { input.pop(); push_token(code, pending, { op_or  }); }
-                else if (current == '^') { input.pop(); push_token(code, pending, { op_xor }); }
+                if (current == ' ')
+                {
+                    input.pop();
+                }
+                else if (current == '+')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_add});
+                }
+                else if (current == '-')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_sub});
+                }
+                else if (current == '*')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_mul});
+                }
+                else if (current == '/')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_div});
+                }
+                else if (current == '%')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_mod});
+                }
+                else if (current == '&')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_and});
+                }
+                else if (current == '|')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_or});
+                }
+                else if (current == '^')
+                {
+                    input.pop();
+                    push_token(code, pending, {op_xor});
+                }
                 else if (current == '(')
                 {
                     input.pop();
 
-                    push_token(code, pending, { op_paren, 1, { paren_default }});
+                    push_token(code, pending, {op_paren, 1, {paren_default}});
                 }
                 else if (current == ')')
                 {
@@ -219,7 +251,7 @@ namespace mem
                 {
                     input.pop();
 
-                    push_token(code, pending, { op_paren, 1, { paren_bracket }});
+                    push_token(code, pending, {op_paren, 1, {paren_bracket}});
                 }
                 else if (current == ']')
                 {
@@ -254,10 +286,26 @@ namespace mem
 
                         current = input.peek();
 
-                        if      (current == 'b') { input.pop(); read_size = 1; }
-                        else if (current == 'w') { input.pop(); read_size = 2; }
-                        else if (current == 'd') { input.pop(); read_size = 4; }
-                        else if (current == 'q') { input.pop(); read_size = 8; }
+                        if (current == 'b')
+                        {
+                            input.pop();
+                            read_size = 1;
+                        }
+                        else if (current == 'w')
+                        {
+                            input.pop();
+                            read_size = 2;
+                        }
+                        else if (current == 'd')
+                        {
+                            input.pop();
+                            read_size = 4;
+                        }
+                        else if (current == 'q')
+                        {
+                            input.pop();
+                            read_size = 8;
+                        }
                         else if (is_relative)
                         {
                             read_size = 4;
@@ -272,19 +320,19 @@ namespace mem
 
                     if (is_relative)
                     {
-                        push_code(code, { op_dup });
+                        push_code(code, {op_dup});
                     }
 
-                    push_code(code, { op_load, 1, { read_size }});
+                    push_code(code, {op_load, 1, {read_size}});
 
                     if (is_signed)
                     {
-                        push_code(code, { op_sx, 1, { read_size * 8 }});
+                        push_code(code, {op_sx, 1, {read_size * 8}});
                     }
 
                     if (is_relative)
                     {
-                        push_code(code, { op_add });
+                        push_code(code, {op_add});
                     }
                 }
                 else if (current == '$')
@@ -320,7 +368,7 @@ namespace mem
                         return false;
                     }
 
-                    push_code(code, { op_sym, 1, { sym }});
+                    push_code(code, {op_sym, 1, {sym}});
                 }
                 else if (xctoi(current) != -1)
                 {
@@ -335,7 +383,7 @@ namespace mem
                         value = (value * 16) + temp;
                     }
 
-                    push_code(code, { op_push, 1, { value }});
+                    push_code(code, {op_push, 1, {value}});
                 }
                 else
                 {
@@ -345,7 +393,8 @@ namespace mem
 
             while (!pending.empty())
             {
-                token current = pending.top(); pending.pop();
+                token current = pending.top();
+                pending.pop();
 
                 if (current.op == op_paren)
                     return false;
@@ -366,17 +415,60 @@ namespace mem
             {
                 int current = input.peek();
 
-                if (current == ' ') { input.pop(); }
-                else if (current == '+') { input.pop(); code.push_back(op_add);  }
-                else if (current == '-') { input.pop(); code.push_back(op_sub);  }
-                else if (current == '*') { input.pop(); code.push_back(op_mul);  }
-                else if (current == '/') { input.pop(); code.push_back(op_div);  }
-                else if (current == '%') { input.pop(); code.push_back(op_mod);  }
-                else if (current == '&') { input.pop(); code.push_back(op_and);  }
-                else if (current == '|') { input.pop(); code.push_back(op_or );  }
-                else if (current == '^') { input.pop(); code.push_back(op_xor);  }
-                else if (current == '>') { input.pop(); code.push_back(op_dup);  }
-                else if (current == '<') { input.pop(); code.push_back(op_drop); }
+                if (current == ' ')
+                {
+                    input.pop();
+                }
+                else if (current == '+')
+                {
+                    input.pop();
+                    code.push_back(op_add);
+                }
+                else if (current == '-')
+                {
+                    input.pop();
+                    code.push_back(op_sub);
+                }
+                else if (current == '*')
+                {
+                    input.pop();
+                    code.push_back(op_mul);
+                }
+                else if (current == '/')
+                {
+                    input.pop();
+                    code.push_back(op_div);
+                }
+                else if (current == '%')
+                {
+                    input.pop();
+                    code.push_back(op_mod);
+                }
+                else if (current == '&')
+                {
+                    input.pop();
+                    code.push_back(op_and);
+                }
+                else if (current == '|')
+                {
+                    input.pop();
+                    code.push_back(op_or);
+                }
+                else if (current == '^')
+                {
+                    input.pop();
+                    code.push_back(op_xor);
+                }
+                else if (current == '>')
+                {
+                    input.pop();
+                    code.push_back(op_dup);
+                }
+                else if (current == '<')
+                {
+                    input.pop();
+                    code.push_back(op_drop);
+                }
                 else if (current == '[')
                 {
                     input.pop();
@@ -384,13 +476,37 @@ namespace mem
                     bool is_signed = false;
                     size_t width = SIZE_MAX;
 
-                    if      (input.peek() == 's') { input.pop(); is_signed = true;  }
-                    else if (input.peek() == 'u') { input.pop(); is_signed = false; }
+                    if (input.peek() == 's')
+                    {
+                        input.pop();
+                        is_signed = true;
+                    }
+                    else if (input.peek() == 'u')
+                    {
+                        input.pop();
+                        is_signed = false;
+                    }
 
-                    if      (input.peek() == 'b') { input.pop(); width = 1; }
-                    else if (input.peek() == 'w') { input.pop(); width = 2; }
-                    else if (input.peek() == 'd') { input.pop(); width = 4; }
-                    else if (input.peek() == 'q') { input.pop(); width = 8; }
+                    if (input.peek() == 'b')
+                    {
+                        input.pop();
+                        width = 1;
+                    }
+                    else if (input.peek() == 'w')
+                    {
+                        input.pop();
+                        width = 2;
+                    }
+                    else if (input.peek() == 'd')
+                    {
+                        input.pop();
+                        width = 4;
+                    }
+                    else if (input.peek() == 'q')
+                    {
+                        input.pop();
+                        width = 8;
+                    }
                     else
                     {
                         return false;
@@ -437,8 +553,14 @@ namespace mem
 
                     size_t sym = SIZE_MAX;
 
-                    if (!std::strcmp(name, "") || !std::strcmp(name, "here")) { sym = sym_here; }
-                    else { return false; }
+                    if (!std::strcmp(name, "") || !std::strcmp(name, "here"))
+                    {
+                        sym = sym_here;
+                    }
+                    else
+                    {
+                        return false;
+                    }
 
                     code.push_back(op_sym);
                     code.push_back(sym);
@@ -468,9 +590,8 @@ namespace mem
             return true;
         }
 
-        bool execute(const std::vector<size_t>& input,
-            size_t* stack, size_t stack_size, size_t& sp_out,
-            const environment& env)
+        bool execute(
+            const std::vector<size_t>& input, size_t* stack, size_t stack_size, size_t& sp_out, const environment& env)
         {
             size_t ip = 0;
             size_t sp = 0;
@@ -495,7 +616,8 @@ namespace mem
                             return false;
 
                         stack[sp++] = code[ip++];
-                    } break;
+                    }
+                    break;
 
                     case op_add:
                     {
@@ -505,7 +627,8 @@ namespace mem
                         size_t temp = stack[--sp];
 
                         stack[sp - 1] += temp;
-                    } break;
+                    }
+                    break;
 
                     case op_sub:
                     {
@@ -515,7 +638,8 @@ namespace mem
                         size_t temp = stack[--sp];
 
                         stack[sp - 1] -= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_mul:
                     {
@@ -525,7 +649,8 @@ namespace mem
                         size_t temp = stack[--sp];
 
                         stack[sp - 1] *= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_div:
                     {
@@ -538,7 +663,8 @@ namespace mem
                             return false;
 
                         stack[sp - 1] /= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_mod:
                     {
@@ -551,7 +677,8 @@ namespace mem
                             return false;
 
                         stack[sp - 1] %= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_and:
                     {
@@ -561,7 +688,8 @@ namespace mem
                         size_t temp = stack[--sp];
 
                         stack[sp - 1] &= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_or:
                     {
@@ -571,7 +699,8 @@ namespace mem
                         size_t temp = stack[--sp];
 
                         stack[sp - 1] |= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_xor:
                     {
@@ -581,7 +710,8 @@ namespace mem
                         size_t temp = stack[--sp];
 
                         stack[sp - 1] ^= temp;
-                    } break;
+                    }
+                    break;
 
                     case op_neg:
                     {
@@ -589,7 +719,8 @@ namespace mem
                             return false;
 
                         stack[sp - 1] = size_t(0) - stack[sp - 1];
-                    } break;
+                    }
+                    break;
 
                     case op_sx:
                     {
@@ -603,7 +734,8 @@ namespace mem
                         size_t mask = size_t(1) << (bits - 1);
 
                         stack[sp - 1] = (stack[sp - 1] ^ mask) - mask;
-                    } break;
+                    }
+                    break;
 
                     case op_dup:
                     {
@@ -616,7 +748,8 @@ namespace mem
                         size_t temp = stack[sp - 1];
 
                         stack[sp++] = temp;
-                    } break;
+                    }
+                    break;
 
                     case op_drop:
                     {
@@ -624,7 +757,8 @@ namespace mem
                             return false;
 
                         --sp;
-                    } break;
+                    }
+                    break;
 
                     case op_load:
                     {
@@ -646,7 +780,8 @@ namespace mem
                             return false;
 
                         stack[sp - 1] = temp;
-                    } break;
+                    }
+                    break;
 
                     case op_sym:
                     {
@@ -666,11 +801,10 @@ namespace mem
                             return false;
 
                         stack[sp++] = temp;
-                    } break;
+                    }
+                    break;
 
-                    default:
-                    {
-                        return false;
+                    default: { return false;
                     }
                 }
             }
@@ -679,8 +813,8 @@ namespace mem
 
             return true;
         }
-    }
-}
+    } // namespace sm
+} // namespace mem
 
 void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::string file_name)
 {
@@ -699,8 +833,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
     const brick::view_data data(view);
 
-    std::for_each(patterns.begin(), patterns.end(), [&] (const YAML::Node& n) -> bool
-    {
+    std::for_each(patterns.begin(), patterns.end(), [&](const YAML::Node& n) -> bool {
         try
         {
             std::string name = n["name"].as<std::string>();
@@ -755,8 +888,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
                             mem::sm::environment env;
 
-                            env.read_integer = [view, &reader] (size_t addr, size_t size, size_t& out) -> bool
-                            {
+                            env.read_integer = [view, &reader](size_t addr, size_t size, size_t& out) -> bool {
                                 if (size == 0)
                                     size = view->GetAddressSize();
 
@@ -767,10 +899,46 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
                                 switch (size)
                                 {
-                                    case 1: { uint8_t  result; if (!reader.TryRead8 (result)) { return false; } out = result; return true; }
-                                    case 2: { uint16_t result; if (!reader.TryRead16(result)) { return false; } out = result; return true; }
-                                    case 4: { uint32_t result; if (!reader.TryRead32(result)) { return false; } out = result; return true; }
-                                    case 8: { uint64_t result; if (!reader.TryRead64(result)) { return false; } out = result; return true; }
+                                    case 1:
+                                    {
+                                        uint8_t result;
+                                        if (!reader.TryRead8(result))
+                                        {
+                                            return false;
+                                        }
+                                        out = result;
+                                        return true;
+                                    }
+                                    case 2:
+                                    {
+                                        uint16_t result;
+                                        if (!reader.TryRead16(result))
+                                        {
+                                            return false;
+                                        }
+                                        out = result;
+                                        return true;
+                                    }
+                                    case 4:
+                                    {
+                                        uint32_t result;
+                                        if (!reader.TryRead32(result))
+                                        {
+                                            return false;
+                                        }
+                                        out = result;
+                                        return true;
+                                    }
+                                    case 8:
+                                    {
+                                        uint64_t result;
+                                        if (!reader.TryRead64(result))
+                                        {
+                                            return false;
+                                        }
+                                        out = result;
+                                        return true;
+                                    }
                                 }
 
                                 return false;
@@ -778,8 +946,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
                             size_t here = *iter;
 
-                            env.resolve_symbol = [here] (size_t sym, size_t& out) -> bool
-                            {
+                            env.resolve_symbol = [here](size_t sym, size_t& out) -> bool {
                                 switch (sym)
                                 {
                                     case mem::sm::sym_here:
@@ -826,7 +993,8 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
                     if (count != scan_results.size())
                     {
-                        BinjaLog(ErrorLog, "{}: Invalid Count: (Got {}, Expected {})", name, scan_results.size(), count);
+                        BinjaLog(
+                            ErrorLog, "{}: Invalid Count: (Got {}, Expected {})", name, scan_results.size(), count);
 
                         return true;
                     }
@@ -842,7 +1010,7 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
                         return true;
                     }
 
-                    unique_scan_results = { scan_results.at(index) };
+                    unique_scan_results = {scan_results.at(index)};
                 }
             }
 
@@ -897,9 +1065,11 @@ void ProcessPatternFile(Ref<BackgroundTask> task, Ref<BinaryView> view, std::str
 
     const auto total_end_time = stopwatch::now();
 
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
+    const auto elapsed_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(total_end_time - total_start_time).count();
 
-    BinjaLog(InfoLog, "Found {} patterns in {} ms ({} ms avg)\n", patterns.size(), elapsed_ms, (double) elapsed_ms / (double) patterns.size());
+    BinjaLog(InfoLog, "Found {} patterns in {} ms ({} ms avg)\n", patterns.size(), elapsed_ms,
+        (double) elapsed_ms / (double) patterns.size());
 }
 
 void LoadPatternFile(Ref<BinaryView> view)

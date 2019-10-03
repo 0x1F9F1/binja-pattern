@@ -21,12 +21,11 @@
 
 #include "BinaryNinja.h"
 
+#include <exception>
 #include <thread>
 #include <type_traits>
-#include <exception>
 
-class BackgroundTaskThread
-    : public BackgroundTask
+class BackgroundTaskThread : public BackgroundTask
 {
 protected:
     std::thread thread_;
@@ -34,7 +33,7 @@ protected:
 public:
     BackgroundTaskThread(const std::string& initialText)
         : BackgroundTask(initialText, true)
-    { }
+    {}
 
     ~BackgroundTaskThread()
     {
@@ -49,23 +48,24 @@ public:
     {
         Ref<BackgroundTaskThread> task(this);
 
-        thread_ = std::thread([task] (typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void
-        {
-            try
-            {
-                func(task.GetPtr(), std::move(args)...);
-            }
-            catch (const std::exception& ex)
-            {
-                BinjaLog(ErrorLog, "Exception in background task: {}", ex.what());
-            }
-            catch (...)
-            {
-                BinjaLog(ErrorLog, "Unknown Exception in background task");
-            }
+        thread_ = std::thread(
+            [task](typename std::decay<Func>::type func, typename std::decay<Args>::type... args) -> void {
+                try
+                {
+                    func(task.GetPtr(), std::move(args)...);
+                }
+                catch (const std::exception& ex)
+                {
+                    BinjaLog(ErrorLog, "Exception in background task: {}", ex.what());
+                }
+                catch (...)
+                {
+                    BinjaLog(ErrorLog, "Unknown Exception in background task");
+                }
 
-            task->Finish();
-        }, std::forward<Func>(func), std::forward<Args>(args)...);
+                task->Finish();
+            },
+            std::forward<Func>(func), std::forward<Args>(args)...);
     }
 
     void Join()
