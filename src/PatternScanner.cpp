@@ -80,6 +80,27 @@ std::string GetInstructionContaningAddress(Ref<BasicBlock> block, uint64_t addre
     return "";
 }
 
+std::string HtmlEncode(const std::string& data)
+{
+    std::string buffer;
+    buffer.reserve(data.size());
+
+    for (const char c : data)
+    {
+        switch (c)
+        {
+            case '&': buffer.append("&amp;"); break;
+            case '\"': buffer.append("&quot;"); break;
+            case '\'': buffer.append("&apos;"); break;
+            case '<': buffer.append("&lt;"); break;
+            case '>': buffer.append("&gt;"); break;
+            default: buffer.push_back(c); break;
+        }
+    }
+
+    return buffer;
+}
+
 void ScanForArrayOfBytesInternal(
     Ref<BackgroundTask> task, Ref<BinaryView> view, const mem::pattern& pattern, const std::string& pattern_string)
 {
@@ -162,48 +183,56 @@ void ScanForArrayOfBytesInternal(
 
     if (results.size() >= MAX_SCAN_RESULTS)
     {
-        report += fmt::format("Warning: Too many results, truncated to {}.\n\n", MAX_SCAN_RESULTS);
+        report += fmt::format("<p>Warning: Too many results, truncated to {}.</p>", MAX_SCAN_RESULTS);
 
         results.resize(MAX_SCAN_RESULTS);
     }
 
     std::sort(results.begin(), results.end());
 
-    report += fmt::format("Found {} results for `{}` in {} ms (actual {} ms):\n\n", results.size(), pattern_string,
-        elapsed_ms, total_elapsed_ms);
-    // report += fmt::format("0x{:X} bytes = {:.3f} GB/s = {} cycles = {} cycles per byte\n\n", total_size, (total_size
-    // / 1073741824.0) / (elapsed_ms / 1000.0), elapsed_cycles, double(elapsed_cycles) / double(total_size));
+    report += fmt::format("<p>Found {} results for `{}` in {} ms (actual {} ms):</p>", results.size(),
+        HtmlEncode(pattern_string), elapsed_ms, total_elapsed_ms);
 
     const size_t plength = pattern.size();
 
     if (plength > 0)
     {
-        report += fmt::format("Pattern: Length {}, \"{}\"\n\n", plength, pattern.to_string());
+        report += fmt::format("<p>Pattern: Length {}, \"{}\"</p>", plength, HtmlEncode(pattern.to_string()));
     }
 
-    report += "\n\n";
+    report += "<ul>";
 
     for (uint64_t result : results)
     {
-        report += fmt::format("* [0x{0:X}](binaryninja://?expr=0x{0:X})\n", result);
+        report += "<li>";
+
+        report += fmt::format("<a href=\"binaryninja://?expr=0x{0:X}\">0x{0:X}</a>", result);
 
         std::vector<Ref<BasicBlock>> blocks = view->GetBasicBlocksForAddress(result);
 
         if (!blocks.empty())
         {
+            report += "<ul>";
+
             for (size_t i = 0; i < blocks.size(); ++i)
             {
                 Ref<BasicBlock> block = blocks[i];
 
                 std::string instr_text = GetInstructionContaningAddress(block, result);
 
-                report += fmt::format("    * [{0}](binaryninja://?expr={0}) : `{1}`\n",
-                    block->GetFunction()->GetSymbol()->GetFullName(), instr_text);
+                report += fmt::format("<li><a href=\"binaryninja://?expr={0}\">{0} : `{1}`</a></li>",
+                    HtmlEncode(block->GetFunction()->GetSymbol()->GetFullName()), HtmlEncode(instr_text));
             }
+
+            report += "</ul>";
         }
+
+        report += "</li>";
     }
 
-    view->ShowMarkdownReport("Scan Results", report, "");
+    report += "</ul>";
+
+    view->ShowHTMLReport("Scan Results", report, "");
 }
 
 void ScanForArrayOfBytesTask(
