@@ -267,7 +267,7 @@ extern "C"
         delete pattern;
     }
 
-    BINARYNINJAPLUGIN size_t BinjaPattern_Scan(
+    BINARYNINJAPLUGIN size_t BinaryPattern_Scan(
         BinaryPattern* pattern, const uint8_t* data, size_t length, size_t* values, size_t limit)
     {
         if (limit == 0)

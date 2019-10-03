@@ -30,6 +30,6 @@ extern "C"
     BINARYNINJAPLUGIN BinaryPattern* BinaryPattern_Parse(const char* pattern);
     BINARYNINJAPLUGIN void BinaryPattern_Free(BinaryPattern* pattern);
 
-    BINARYNINJAPLUGIN size_t BinjaPattern_Scan(
+    BINARYNINJAPLUGIN size_t BinaryPattern_Scan(
         BinaryPattern* pattern, const uint8_t* data, size_t length, size_t* values, size_t limit);
 }

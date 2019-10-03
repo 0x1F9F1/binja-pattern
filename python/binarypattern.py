@@ -14,9 +14,9 @@ _BinaryPattern_Free = _binarypattern_dll['BinaryPattern_Free']
 _BinaryPattern_Free.argtypes = [POINTER(_BinaryPattern)]
 _BinaryPattern_Free.restype = None
 
-_BinjaPattern_Scan = _binarypattern_dll['BinjaPattern_Scan']
-_BinjaPattern_Scan.argtypes = [POINTER(_BinaryPattern), POINTER(c_ubyte), c_size_t, POINTER(c_size_t), c_size_t]
-_BinjaPattern_Scan.restype = c_size_t
+_BinaryPattern_Scan = _binarypattern_dll['BinaryPattern_Scan']
+_BinaryPattern_Scan.argtypes = [POINTER(_BinaryPattern), POINTER(c_ubyte), c_size_t, POINTER(c_size_t), c_size_t]
+_BinaryPattern_Scan.restype = c_size_t
 
 class BinaryPattern:
     def __init__(self, pattern):
@@ -28,7 +28,7 @@ class BinaryPattern:
     def find(self, data):
         result = c_size_t()
 
-        if _BinjaPattern_Scan(self.handle, cast(data, POINTER(c_ubyte)), c_size_t(len(data)), cast(addressof(result), POINTER(c_size_t)), c_size_t(1)):
+        if _BinaryPattern_Scan(self.handle, cast(data, POINTER(c_ubyte)), c_size_t(len(data)), cast(addressof(result), POINTER(c_size_t)), c_size_t(1)):
             return result.value
         else:
             return None
