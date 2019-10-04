@@ -139,7 +139,7 @@ void GenerateSignature(Ref<BinaryView> view, uint64_t addr)
 
     if (arch_name == "x86" || arch_name == "x86_64")
     {
-        decoder = std::make_unique<X86MaskDecoder>(arch->GetAddressSize());
+        decoder.reset(new X86MaskDecoder(arch->GetAddressSize()));
     }
     else
     {
