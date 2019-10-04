@@ -1,7 +1,17 @@
 from ctypes import *
 from os import path
+import platform
 
-_binarypattern_dll = CDLL(path.join(path.dirname(path.realpath(__file__)), 'binja-pattern'))
+if platform.system() == 'Windows':
+    _binarypattern_name = 'binja-pattern.dll'
+elif platform.system() == 'Linux':
+    _binarypattern_name = 'libbinja-pattern.so'
+elif platform.system() == 'Darwin':
+    _binarypattern_name = "libbinja-pattern.dylib"
+else:
+    raise Exception('OS not supported')
+
+_binarypattern_dll = CDLL(path.join(path.dirname(path.realpath(__file__)), _binarypattern_name))
 
 class _BinaryPattern(Structure):
     pass
