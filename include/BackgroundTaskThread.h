@@ -25,6 +25,9 @@
 #include <thread>
 #include <type_traits>
 
+// WARNING: Must be allocated on the heap
+// Ref<BackgroundTaskThread> task = new BackgroundTaskThread("Example Task");
+// task->Run(ExampleFuncion, example_argument);
 class BackgroundTaskThread : public BackgroundTask
 {
 protected:
