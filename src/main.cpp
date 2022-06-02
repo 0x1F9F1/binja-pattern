@@ -22,6 +22,8 @@
 #include "PatternMaker.h"
 #include "PatternScanner.h"
 
+BN_DECLARE_CORE_ABI_VERSION;
+
 extern "C"
 {
     BINARYNINJAPLUGIN bool CorePluginInit()

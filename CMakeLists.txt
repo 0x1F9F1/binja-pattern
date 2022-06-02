@@ -30,9 +30,13 @@ target_link_libraries(binja-pattern
     binaryninjaapi fmt mem yaml-cpp Zydis)
 
 set_target_properties(binja-pattern PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON)
 
-binja_install_plugin(binja-pattern)
+get_target_property(BN_API_SOURCE_DIR binaryninjaapi SOURCE_DIR)
+list(APPEND CMAKE_MODULE_PATH "${BN_API_SOURCE_DIR}/cmake")
+find_package(BinaryNinjaCore REQUIRED)
 
-install(FILES "python/binarypattern.py" DESTINATION ${BINJA_PLUGINS_DIR})
+bn_install_plugin(binja-pattern)
+install(FILES "python/binarypattern.py" DESTINATION ${BN_USER_PLUGINS_DIR})
+

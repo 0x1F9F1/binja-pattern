@@ -119,7 +119,6 @@ void ScanForArrayOfBytesInternal(
 
     size_t total_size {0};
     int64_t elapsed_ms {0};
-    uint64_t elapsed_cycles {0};
 
     const auto total_start_time = stopwatch::now();
 
@@ -135,11 +134,9 @@ void ScanForArrayOfBytesInternal(
         }
 
         const auto start_time = stopwatch::now();
-        const auto start_clocks = mem::rdtsc();
 
         std::vector<uint64_t> sub_results = view_data.scan_all(scanner);
 
-        const auto end_clocks = mem::rdtsc();
         const auto end_time = stopwatch::now();
 
         for (const auto& seg : view_data.segments)
@@ -148,7 +145,6 @@ void ScanForArrayOfBytesInternal(
         }
 
         elapsed_ms += std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        elapsed_cycles += end_clocks - start_clocks;
 
         if (task->IsCancelled())
         {
