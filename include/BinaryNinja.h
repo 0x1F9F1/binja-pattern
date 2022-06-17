@@ -31,7 +31,7 @@ using namespace BinaryNinja;
 template <typename String, typename... Args>
 void BinjaLog(BNLogLevel level, const String& format, const Args&... args)
 {
-    BNLog(level, "%s", fmt::format(format, args...).c_str());
+    BNLog(0, level, "Pattern", 0, "%s", fmt::format(format, args...).c_str());
 }
 
 #include <mem/mem.h>
@@ -63,7 +63,8 @@ namespace brick
                 mem::region range {segment.data.get(), segment.length};
 
                 scanner(range,
-                    [&](mem::pointer result) { return pred(result.shift(range.start, segment.start).as<uint64_t>()); });
+                    [&](mem::pointer result) { return
+					pred(result.shift(range.start, segment.start).as<uintptr_t>()); });
             }
         }
 
